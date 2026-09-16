@@ -67,7 +67,7 @@ class PublicPortalController extends BaseController
             'innerData'      => array_merge($data, [
                 'distribuidoras' => $distribuidoraM->listActivas(),
             ]),
-            'scriptsView'    => 'public/pages/empty_script',
+            'scriptsView'    => 'public/pages/tarifa_social_script',
         ]));
     }
 
@@ -197,6 +197,23 @@ class PublicPortalController extends BaseController
         return redirect()->back();
     }
 
+    /**
+     * Endpoint AJAX de la barra de accesibilidad/idiomas: actualiza site_locale sin recargar la ruta.
+     */
+    public function setLanguage(): ResponseInterface
+    {
+        $supported = config('App')->supportedLocales;
+        $requested = strtolower(trim((string) $this->request->getPost('lang')));
+        $locale = in_array($requested, $supported, true) ? $requested : config('App')->defaultLocale;
+
+        $this->session->set('site_locale', $locale);
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'locale' => $locale,
+        ]);
+    }
+
     public function captcha(): ResponseInterface
     {
         return $this->response->setJSON([
@@ -263,7 +280,7 @@ class PublicPortalController extends BaseController
             return $this->encryptedJsonResponse([
                 'ok' => false,
                 'data' => [
-                    'message' => 'Solicitud cifrada invalida.',
+                    'message' => __('comunidades.error.invalidPayload', 'Solicitud cifrada invalida.'),
                 ],
             ], 400);
         }
@@ -274,7 +291,7 @@ class PublicPortalController extends BaseController
             return $this->encryptedJsonResponse([
                 'ok' => false,
                 'data' => [
-                    'message' => 'Debes ingresar un codigo o nombre de comunidad.',
+                    'message' => __('comunidades.error.emptyTerm', 'Debes ingresar un codigo o nombre de comunidad.'),
                 ],
             ], 422);
         }
@@ -347,13 +364,13 @@ class PublicPortalController extends BaseController
             'nombre_comunidad' => (string) ($item['nombre_comunidad'] ?? ''),
             'municipio' => (string) ($item['municipio'] ?? ''),
             'departamento' => (string) ($item['departamento'] ?? ''),
-            'fase_actual' => (string) ($item['fase_actual'] ?? ''),
-            'estado_actual' => (string) ($item['estado_actual'] ?? ''),
-            'solicitud_firmada' => ((int) ($item['solicitud_firmada'] ?? 0) === 1) ? 'Si' : 'No',
-            'estudio_socioeconomico' => ((int) ($item['estudio_socioeconomico'] ?? 0) === 1) ? 'Si' : 'No',
-            'snip_aprobado' => ((int) ($item['snip_aprobado'] ?? 0) === 1) ? 'Si' : 'No',
-            'licitacion_terminada' => ((int) ($item['licitacion_terminada'] ?? 0) === 1) ? 'Si' : 'No',
-            'obra_energizada' => ((int) ($item['obra_energizada'] ?? 0) === 1) ? 'Si' : 'No',
+            'fase_actual' => $this->translateFaseActual((string) ($item['fase_actual'] ?? '')),
+            'estado_actual' => $this->translateEstadoActual((string) ($item['estado_actual'] ?? '')),
+            'solicitud_firmada' => ((int) ($item['solicitud_firmada'] ?? 0) === 1) ? __('common.yes', 'Si') : __('common.no', 'No'),
+            'estudio_socioeconomico' => ((int) ($item['estudio_socioeconomico'] ?? 0) === 1) ? __('common.yes', 'Si') : __('common.no', 'No'),
+            'snip_aprobado' => ((int) ($item['snip_aprobado'] ?? 0) === 1) ? __('common.yes', 'Si') : __('common.no', 'No'),
+            'licitacion_terminada' => ((int) ($item['licitacion_terminada'] ?? 0) === 1) ? __('common.yes', 'Si') : __('common.no', 'No'),
+            'obra_energizada' => ((int) ($item['obra_energizada'] ?? 0) === 1) ? __('common.yes', 'Si') : __('common.no', 'No'),
         ];
 
         $mappedFields = [];
@@ -423,6 +440,40 @@ class PublicPortalController extends BaseController
         return trim(implode(' ', $parts));
     }
 
+    /**
+     * Traduce el estado libre almacenado en gero_comunidades (ej: "Trasladado a DICODER")
+     * usando una clave normalizada para que pueda editarse desde /admin/idiomas.
+     */
+    private function translateEstadoActual(string $estado): string
+    {
+        $estado = trim($estado);
+
+        if ($estado === '') {
+            return $estado;
+        }
+
+        return __('comunidades.estado.' . $this->slugifyForTranslationKey($estado), $estado);
+    }
+
+    private function translateFaseActual(string $fase): string
+    {
+        $fase = trim($fase);
+
+        if (! in_array($fase, ['fase_1', 'fase_2', 'fase_3'], true)) {
+            return $fase;
+        }
+
+        return __('comunidades.phase.' . $fase . '.short', $this->prettifyLabel($fase));
+    }
+
+    private function slugifyForTranslationKey(string $value): string
+    {
+        $slug = mb_strtolower(trim($value));
+        $slug = preg_replace('/[^a-z0-9]+/u', '_', $slug) ?? '';
+
+        return trim($slug, '_');
+    }
+
     public function listarArchivosPublicosComunidades(): ResponseInterface
     {
         $baseDir = FCPATH . 'assets/archivos';
@@ -476,14 +527,30 @@ class PublicPortalController extends BaseController
     public function cortes(): ResponseInterface
     {
         $locale = $this->resolveLocale();
-        $departamento = trim(strip_tags((string) $this->request->getGet('departamento')));
-        $municipio = trim(strip_tags((string) $this->request->getGet('municipio')));
-        $departamento = mb_substr($departamento, 0, 120);
-        $municipio = mb_substr($municipio, 0, 120);
+        $departamentoId = (int) $this->request->getGet('departamento_id');
+        $municipioId = (int) $this->request->getGet('municipio_id');
 
         return $this->response->setJSON([
             'ok' => true,
-            'data' => $this->portalService->listCortes($locale, $departamento, $municipio),
+            'data' => $this->portalService->listCortes($locale, $departamentoId, $municipioId),
+        ]);
+    }
+
+    public function cortesDepartamentos(): ResponseInterface
+    {
+        return $this->response->setJSON([
+            'ok' => true,
+            'data' => $this->portalService->getDepartamentos(),
+        ]);
+    }
+
+    public function cortesMunicipios(): ResponseInterface
+    {
+        $departamentoId = (int) $this->request->getGet('departamento_id');
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'data' => $this->portalService->getMunicipios($departamentoId),
         ]);
     }
 

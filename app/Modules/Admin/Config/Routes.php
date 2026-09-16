@@ -12,6 +12,11 @@ $routes->group('admin', [
     $routes->get('logs', 'LogsController::index', ['filter' => 'adminPermission:admin.logs.view']);
     $routes->get('portal-publico', 'PublicMenuController::index', ['filter' => 'adminPermission:admin.portal_publico.view']);
     $routes->get('migraciones', 'MigrationsController::index', ['filter' => 'adminPermission:admin.migrations.view']);
+    $routes->get('idiomas', 'TranslationsController::index', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->get('idiomas/list', 'TranslationsController::list', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->post('idiomas/save', 'TranslationsController::save', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->post('idiomas/delete', 'TranslationsController::delete', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->post('idiomas/clear-cache', 'TranslationsController::clearCache', ['filter' => 'adminPermission:admin.idiomas.view']);
 
     $routes->get('api/gerencias', 'GerenciasController::list', ['filter' => 'adminPermission:admin.gerencias.view']);
     $routes->post('api/gerencias', 'GerenciasController::store', ['filter' => 'adminPermission:admin.gerencias.view']);

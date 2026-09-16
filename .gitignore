@@ -2,3 +2,5 @@ uploads/
 debugbar/
 logs/
 session/
+.env
+vendor/

@@ -33,19 +33,24 @@
         return 'bi-file-earmark-text';
     }
 
+    function i18n() {
+        return window.PortalConfig?.i18n?.comunidades || {};
+    }
+
     function renderDownloads(items) {
         const status = document.getElementById('downloadsStatus');
         const list = document.getElementById('downloadsList');
+        const dict = i18n().downloads || {};
 
         if (!Array.isArray(items) || items.length === 0) {
-            status.textContent = 'No hay documentos disponibles en /assets/archivos.';
+            status.textContent = dict.none || 'No hay documentos disponibles en /assets/archivos.';
             list.innerHTML = '';
             return;
         }
 
-        status.textContent = `${items.length} documento(s) disponible(s).`;
+        status.textContent = `${items.length} ${dict.availableSuffix || 'documento(s) disponible(s).'}`;
         list.innerHTML = items.map((item) => {
-            const name = escapeHtml(item.name || 'Documento');
+            const name = escapeHtml(item.name || dict.defaultName || 'Documento');
             const url = escapeHtml(item.url || '#');
             const size = escapeHtml(formatBytes(item.size || 0));
             const updated = escapeHtml(item.updated_at || '');
@@ -57,7 +62,7 @@
                         <i class="bi ${icon} fs-5"></i>
                         <div>
                             <div class="fw-semibold text-dark">${name}</div>
-                            <div class="small text-muted">Actualizado: ${updated}</div>
+                            <div class="small text-muted">${escapeHtml(dict.updatedLabel || 'Actualizado')}: ${updated}</div>
                         </div>
                     </div>
                     <span class="map-pill small text-dark">${size}</span>
@@ -68,10 +73,11 @@
 
     async function loadDownloads() {
         const status = document.getElementById('downloadsStatus');
+        const dict = i18n().downloads || {};
         const endpoint = window?.PortalConfig?.endpoints?.comunidadesArchivos || '';
 
         if (!endpoint) {
-            status.textContent = 'No se configuro el endpoint de descargas.';
+            status.textContent = dict.endpointMissing || 'No se configuro el endpoint de descargas.';
             return;
         }
 
@@ -86,13 +92,13 @@
 
             const payload = await response.json();
             if (!payload?.ok) {
-                status.textContent = 'No fue posible cargar los documentos en este momento.';
+                status.textContent = dict.loadError || 'No fue posible cargar los documentos en este momento.';
                 return;
             }
 
             renderDownloads(payload?.data?.items || []);
         } catch (error) {
-            status.textContent = 'Error al cargar documentos. Intenta nuevamente.';
+            status.textContent = dict.fetchError || 'Error al cargar documentos. Intenta nuevamente.';
         }
     }
 
@@ -168,9 +174,10 @@
     }
 
     function phaseLabel(value) {
-        if (value === 'fase_2') return 'Fase 2 · Pre-Inversion';
-        if (value === 'fase_3') return 'Fase 3 · Ejecucion';
-        return 'Fase 1 · Solicitud';
+        const dict = i18n().phase || {};
+        if (value === 'fase_2') return dict.fase_2 || 'Fase 2 - Pre-Inversion';
+        if (value === 'fase_3') return dict.fase_3 || 'Fase 3 - Ejecucion';
+        return dict.fase_1 || 'Fase 1 - Solicitud';
     }
 
     function normalizePhase(value) {
@@ -179,8 +186,10 @@
     }
 
     function requirementsForPhase(value) {
+        const dict = i18n().requirements || {};
+
         if (value === 'fase_3') {
-            return [
+            return dict.fase_3 || [
                 'Licitacion aprobada y adjudicada.',
                 'Contratista asignado y orden de inicio.',
                 'Plan de ejecucion y supervision activos.',
@@ -189,7 +198,7 @@
         }
 
         if (value === 'fase_2') {
-            return [
+            return dict.fase_2 || [
                 'Estudio socioeconomico finalizado.',
                 'Diseno electrico en validacion.',
                 'Gestion ambiental y aprobacion SNIP en curso.',
@@ -197,7 +206,7 @@
             ];
         }
 
-        return [
+        return dict.fase_1 || [
             'Solicitud firmada y sellada por COCODE.',
             'Listado de usuarios y croquis de ubicacion.',
             'Coordenadas GTM / UTM y resolucion municipal.',
@@ -232,17 +241,18 @@
 
     function renderMilestones(item) {
         const list = document.getElementById('milestonesList');
+        const dict = i18n().milestone || {};
         const dynamicMilestones = item?.landing_dynamic?.milestones;
         const entries = Array.isArray(dynamicMilestones) && dynamicMilestones.length > 0
             ? dynamicMilestones.map((row) => ({
-                label: row?.label || 'Campo',
-                value: row?.value || 'Pendiente',
+                label: row?.label || dict.campo || 'Campo',
+                value: row?.value || dict.pendiente || 'Pendiente',
             }))
             : [
-                { label: 'Registro de solicitud', value: item.codigo_comunidad || item.nombre_comunidad || 'Pendiente' },
-                { label: 'Fase actual', value: phaseLabel(normalizePhase(item.fase_actual || 'fase_1')) },
-                { label: 'Estado actual', value: item.estado_actual || 'Pendiente' },
-                { label: 'Ultima actualizacion', value: item.updated_at || 'Sin actualizar' },
+                { label: dict.registro || 'Registro de solicitud', value: item.codigo_comunidad || item.nombre_comunidad || (dict.pendiente || 'Pendiente') },
+                { label: dict.faseActual || 'Fase actual', value: phaseLabel(normalizePhase(item.fase_actual || 'fase_1')) },
+                { label: dict.estadoActual || 'Estado actual', value: item.estado_actual || (dict.pendiente || 'Pendiente') },
+                { label: dict.ultimaActualizacion || 'Ultima actualizacion', value: item.updated_at || (dict.sinActualizar || 'Sin actualizar') },
             ];
 
         list.innerHTML = entries.map((entry) => `
@@ -266,10 +276,11 @@
 
         if (mapped.length === 0) {
             const phase = normalizePhase(item.fase_actual || 'fase_1');
+            const dict = i18n().mappedFields || {};
             const fallbackBlocks = [
-                { phase: 'Fase 1', title: 'Solicitud', value: phase === 'fase_1' ? 'Activa' : 'Registrada' },
-                { phase: 'Fase 2', title: 'Pre-Inversion', value: phase === 'fase_2' || phase === 'fase_3' ? 'En proceso' : 'Pendiente' },
-                { phase: 'Fase 3', title: 'Ejecucion', value: phase === 'fase_3' ? 'En ejecucion' : 'Pendiente' },
+                { phase: i18n().phaseShort?.fase_1 || 'Fase 1', title: dict.fallbackSolicitud || 'Solicitud', value: phase === 'fase_1' ? (dict.estadoActiva || 'Activa') : (dict.estadoRegistrada || 'Registrada') },
+                { phase: i18n().phaseShort?.fase_2 || 'Fase 2', title: dict.fallbackPreinversion || 'Pre-Inversion', value: phase === 'fase_2' || phase === 'fase_3' ? (dict.estadoEnProceso || 'En proceso') : (dict.estadoPendiente || 'Pendiente') },
+                { phase: i18n().phaseShort?.fase_3 || 'Fase 3', title: dict.fallbackEjecucion || 'Ejecucion', value: phase === 'fase_3' ? (dict.estadoEnEjecucion || 'En ejecucion') : (dict.estadoPendiente || 'Pendiente') },
             ];
 
             panel.innerHTML = fallbackBlocks.map((block) => `
@@ -300,21 +311,22 @@
         });
 
         const blockDefs = [
-            { key: 'fase_1', title: 'Fase 1 · Solicitud' },
-            { key: 'fase_2', title: 'Fase 2 · Pre-Inversion' },
-            { key: 'fase_3', title: 'Fase 3 · Ejecucion' },
+            { key: 'fase_1', title: i18n().phase?.fase_1 || 'Fase 1 - Solicitud' },
+            { key: 'fase_2', title: i18n().phase?.fase_2 || 'Fase 2 - Pre-Inversion' },
+            { key: 'fase_3', title: i18n().phase?.fase_3 || 'Fase 3 - Ejecucion' },
         ];
 
         panel.innerHTML = blockDefs.map((def) => {
             const items = byPhase[def.key];
             const cards = Array.isArray(cardMap[def.key]) ? cardMap[def.key] : [];
+            const dict = i18n().mappedFields || {};
 
             const lines = items.length > 0
-                ? items.map((line) => `<li><strong>${escapeHtml(line.label || 'Campo')}:</strong> ${escapeHtml(line.value || '-')}</li>`).join('')
-                : '<li class="text-muted">Sin campos configurados para esta fase.</li>';
+                ? items.map((line) => `<li><strong>${escapeHtml(line.label || (i18n().milestone?.campo || 'Campo'))}:</strong> ${escapeHtml(line.value || '-')}</li>`).join('')
+                : `<li class="text-muted">${escapeHtml(dict.noFieldsForPhase || 'Sin campos configurados para esta fase.')}</li>`;
 
             const cardLines = cards.length > 0
-                ? cards.map((line) => `<li><strong>${escapeHtml(line.label || 'Campo')}:</strong> ${escapeHtml(line.value || '-')}</li>`).join('')
+                ? cards.map((line) => `<li><strong>${escapeHtml(line.label || (i18n().milestone?.campo || 'Campo'))}:</strong> ${escapeHtml(line.value || '-')}</li>`).join('')
                 : '';
 
             return `
@@ -322,7 +334,7 @@
                     <div class="map-card h-100">
                         <div class="small text-uppercase text-secondary fw-semibold mb-1">${escapeHtml(def.title)}</div>
                         <ul class="mb-0 small ps-3">${lines}</ul>
-                        ${cardLines ? `<hr class="my-2"><div class="small text-secondary fw-semibold mb-1">Cards</div><ul class="mb-0 small ps-3">${cardLines}</ul>` : ''}
+                        ${cardLines ? `<hr class="my-2"><div class="small text-secondary fw-semibold mb-1">${escapeHtml(dict.cardsTitle || 'Cards')}</div><ul class="mb-0 small ps-3">${cardLines}</ul>` : ''}
                     </div>
                 </div>
             `;
@@ -351,21 +363,23 @@
     }
 
     function faseLabel(value) {
-        if (value === 'fase_2') return 'Fase 2';
-        if (value === 'fase_3') return 'Fase 3';
-        return 'Fase 1';
+        const dict = i18n().phaseShort || {};
+        if (value === 'fase_2') return dict.fase_2 || 'Fase 2';
+        if (value === 'fase_3') return dict.fase_3 || 'Fase 3';
+        return dict.fase_1 || 'Fase 1';
     }
 
     function renderRows(items) {
+        const dict = i18n().search || {};
         if (!Array.isArray(items) || items.length === 0) {
-            document.getElementById('searchHint').textContent = 'No se encontraron comunidades con ese criterio.';
+            document.getElementById('searchHint').textContent = dict.noResults || 'No se encontraron comunidades con ese criterio.';
             document.getElementById('resultPanel').classList.add('d-none');
             document.getElementById('emptyPanel').classList.remove('d-none');
             return;
         }
 
         renderResult(items[0]);
-        document.getElementById('searchHint').textContent = `Se encontraron ${items.length} resultado(s). Mostrando el primero.`;
+        document.getElementById('searchHint').textContent = `${dict.resultsFoundPrefix || 'Se encontraron'} ${items.length} ${dict.resultsFoundSuffix || 'resultado(s). Mostrando el primero.'}`;
     }
 
     document.getElementById('comunidadesSearchForm').addEventListener('submit', async function (event) {
@@ -404,7 +418,6 @@
 
     document.getElementById('clearSearchBtn').addEventListener('click', function () {
         document.getElementById('comunidadSearchInput').value = '';
-        document.getElementById('searchHint').textContent = 'Escribe un codigo o nombre para consultar la fase actual.';
         document.getElementById('resultPanel').classList.add('d-none');
         document.getElementById('emptyPanel').classList.remove('d-none');
         document.getElementById('mappedFieldsPanel').innerHTML = '';

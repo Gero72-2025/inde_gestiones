@@ -47,6 +47,7 @@
     - `admin.usuarios.view`
     - `admin.roles.view`
     - `admin.portal_publico.view`
+    - `admin.idiomas.view`
     - `admin.logs.view`
     - `admin.uploads.view`
 - Las rutas administrativas tambien estan protegidas por permiso con el alias `adminPermission`.
@@ -423,3 +424,86 @@ $routes->post('api/ecoe/ts/crear-ticket',  'App\Modules\Ecoe\Controllers\TarifaS
 ### Permisos a Sincronizar
 
 Despues de importar el SQL y desplegar el codigo, ejecutar `Sincronizar Modulos` desde `/admin/roles` para registrar el permiso `gerencia.ecoe.tarifa_social.access` y asignarlo al rol que corresponda.
+
+## Modulo de Idiomas y Accesibilidad
+
+Sistema de traduccion dinamica con autodeteccion, independiente del mecanismo nativo de CodeIgniter (`lang()` + archivos `app/Language`) que ya utilizan las paginas publicas existentes. Este modulo permite editar y descubrir textos desde base de datos sin tocar codigo.
+
+### Tabla `translations`
+
+Creada mediante la migracion `app/Database/Migrations/2026-09-11-000001_CreateTranslationsTable.php`.
+
+| Campo | Tipo | Descripcion |
+| --- | --- | --- |
+| `id` | BIGINT PK | Identificador autoincremental. |
+| `lang_code` | VARCHAR(10) | Codigo de idioma (`es`, `en`, `quc`, `qeq`, `cak`). |
+| `translation_key` | VARCHAR(191) | Clave unica de la cadena (ej: `home.hero.title`). |
+| `source_text` | VARCHAR(500) | Texto por defecto (`$default`) recibido por `__()` cuando se creo la clave, tal cual (sin normalizar). Agregado en `2026-09-11-000002_AddSourceTextToTranslations.php`. |
+| `source_text_normalized` | VARCHAR(500) | Version normalizada de `source_text` (trim, espacios colapsados, sin acentos/diacriticos, minusculas) usada para detectar textos semanticamente identicos entre claves distintas. Agregado en `2026-09-11-000003_AddSourceTextNormalizedToTranslations.php`. |
+| `translation_value` | TEXT | Texto traducido para ese idioma. |
+| `is_autodiscovered` | TINYINT(1) | `1` si la clave fue detectada automaticamente por `__()` y aun no ha sido revisada por un editor; `0` si fue creada/editada manualmente desde el panel, o si se autocompleto reutilizando una traduccion ya aprobada para el mismo texto origen normalizado. |
+| `created_at` / `updated_at` | DATETIME | Timestamps estandar. |
+
+Indice unico compuesto en `(lang_code, translation_key)` para evitar duplicados, mas un indice `(lang_code, source_text(191))` y otro `(lang_code, source_text_normalized(191))` para acelerar la busqueda de reutilizacion.
+
+### Funcion global `__($key, $default = '')`
+
+Definida en `app/Helpers/translation_helper.php` y autoloaded globalmente vía `app/Config/Autoload.php` (`$files`), por lo que esta disponible en cualquier vista o controlador sin necesidad de `helper('translation')`.
+
+Flujo de resolucion (el diccionario global por texto normalizado tiene prioridad sobre la clave exacta):
+
+1. Determina el idioma activo desde `session('site_locale')` (o el `defaultLocale` de `Config\App` si no hay sesion).
+2. Normaliza `$default` con `translation_normalize_text()` (trim, colapsar espacios, quitar acentos/diacriticos vía `transliterator_transliterate()` o `iconv()` segun disponibilidad, y convertir a minusculas).
+3. Consulta el **diccionario global cacheado** de traducciones aprobadas manualmente para ese idioma (`translations_normalized_map_{locale}`, TTL 1 hora, `TranslationModel::getApprovedNormalizedMapForLocale()`): `source_text_normalized => translation_value`, sin importar que clave origino cada traduccion.
+   - Si el texto normalizado ya tiene una traduccion aprobada (`is_autodiscovered = 0`) en cualquier parte de la aplicacion, se retorna ese valor **de inmediato**, y la clave actual (`$key`) queda sincronizada en BD con ese mismo valor (`TranslationModel::upsertResolvedKey()`), creandose o corrigiendose segun haga falta. Esto es lo que permite que traducir "Solicitud" o "Fase 1" una sola vez se aplique automaticamente a cualquier otra clave que use ese mismo texto por defecto.
+4. Si no hay coincidencia en el diccionario global, se busca la clave exacta en el mapa cacheado por idioma (`translations_map_{locale}`, `TranslationModel::getAllForLocale()`).
+5. Si la clave tampoco existe en BD, se inserta con `is_autodiscovered = 1` y el `$default` recibido (revisando una ultima vez, directo contra BD, si aparecio una traduccion aprobada para el texto normalizado), quedando disponible para su edicion en `/admin/idiomas`.
+6. `__()` devuelve siempre el valor efectivo que quedo almacenado (reutilizado del diccionario global o el `$default`), nunca deja la clave "vacia" o silenciosamente pendiente.
+
+### Reutilizacion retroactiva desde el panel administrativo
+
+Cuando un editor guarda manualmente una traduccion en `/admin/idiomas` (`TranslationsController::save()`), si la fila editada tiene un `source_text_normalized` registrado (o se puede derivar normalizando su `source_text`), el sistema busca **todas** las demas claves autodetectadas pendientes (`is_autodiscovered = 1`) del mismo idioma con el mismo texto origen normalizado y las actualiza automaticamente con el mismo valor aprobado (`TranslationModel::propagatePendingByNormalizedSourceText()`), marcandolas como revisadas. Ademas, el diccionario global (`translations_normalized_map_{locale}`) se limpia en cada guardado para que la proxima llamada a `__()` en cualquier vista recoja el valor recien aprobado. Esto evita traducir manualmente el mismo texto (ej. "Fase 1") en cada clave donde se repite, incluso si la capitalizacion, acentos o espacios varian ligeramente entre vistas.
+
+### Unificacion de llaves semanticas
+
+Ademas de la reutilizacion automatica por texto normalizado, las vistas deben preferir una unica clave canonica cuando el texto es exactamente el mismo en distintos lugares (ej. `comunidades.phase.fase_1.short` para cualquier "Fase 1", `comunidades.common.solicitud` para "Solicitud"). Revisar `app/Views/public/layout.php` (diccionario `window.PortalConfig.i18n`) antes de crear una clave nueva para un texto que ya podria existir.
+
+### Regla obligatoria para nuevas vistas publicas
+
+**Toda vista publica nueva que se agregue al portal (bajo `app/Views/public/**`, incluyendo `pages/*.php`, `*_script.php` y cualquier archivo servido por `PublicPortalController` o `PublicController`) debe usar exclusivamente la funcion global `__('seccion.clave_descriptiva', 'Texto por defecto')` para cualquier texto visible al usuario (titulos, parrafos, botones, placeholders, etiquetas de estado/fase, mensajes de error o exito).** Queda prohibido escribir texto plano directamente en el HTML o en cadenas JS que el usuario vea, salvo el propio `$default` que se pasa como segundo argumento de `__()`.
+
+Reglas al elegir la clave:
+
+- Usar el formato `seccion.subseccion.elemento` (ej. `comunidades.hero.title1`, `cortes.detail.close`). La `seccion` debe ser el nombre de la pagina o modulo (`home`, `beneficiados`, `cortes`, `comunidades`, `sni`, `tarifaSocial`, `gu`, `eem`, etc.).
+- Antes de crear una clave nueva, revisar si el mismo texto (o uno semanticamente equivalente) ya tiene una clave canonica existente en `app/Views/public/layout.php` (`window.PortalConfig.i18n`) o en otras vistas de `app/Views/public/pages/`; si existe, reutilizar esa clave en lugar de crear una nueva. El sistema de reutilizacion automatica por `source_text_normalized` es una red de seguridad, no un sustituto de elegir bien la clave desde el inicio.
+- Para textos dinamicos generados en JavaScript (fases, estados, badges), no hardcodear el texto en el `.js`/`*_script.php`: exponer el texto traducido desde PHP (via `__()`) dentro de `window.PortalConfig.i18n` en `layout.php`, o inyectarlo directamente como atributo/variable renderizada por el servidor, siguiendo el patron ya usado por `comunidades_script.php` y `cortes_script.php`.
+- Para valores libres que vienen de base de datos (ej. un `estado` capturado por un usuario administrativo), traducir en el controlador con una clave normalizada por slug del valor (ej. `comunidades.estado.{slug}`), nunca imprimir el valor crudo sin pasar por `__()`.
+
+Uso recomendado en vistas:
+
+```php
+<?= esc(__('home.hero.title', 'Bienvenido al Portal INDE')) ?>
+```
+
+### Barra de Accesibilidad e Idiomas (top-bar)
+
+- Ubicada en `app/Views/public/layout.php`, justo antes del `<header class="hero">`, presente en todas las vistas publicas que usan ese layout.
+- Contiene: selector de idioma (dropdown poblado con `localeOptions`/`currentLocale`, ya provistos por `PublicPortalController::pageData()`), botones de aumento/disminucion de tamano de fuente y alternador de alto contraste (persistidos en `localStorage`).
+- El selector de idioma llama por AJAX a `POST /api/public/set-language` (`PublicPortalController::setLanguage()`), que actualiza `session('site_locale')` sin redireccionar, y luego el JS recarga la pagina actual (`window.location.reload()`) manteniendo la ruta.
+
+### Modulo Administrativo "Idiomas" (`/admin/idiomas`)
+
+- Controlador: `App\Modules\Admin\Controllers\TranslationsController` (extiende `AdminBaseController`, mismo patron de CRUD por modales que Gerencias/Usuarios).
+- Rutas (`app/Modules/Admin/Config/Routes.php`, filtro `adminPermission:admin.idiomas.view`):
+    - `GET /admin/idiomas` – vista con tabla, filtros (idioma, autodetectadas, busqueda por clave/texto) y modales de creacion/edicion.
+    - `GET /admin/idiomas/list` – listado JSON cifrado usado por la tabla (soporta `lang`, `search`, `autodiscovered`).
+    - `POST /admin/idiomas/save` – crea o actualiza una traduccion (limpia el cache del idioma afectado).
+    - `POST /admin/idiomas/delete` – elimina una traduccion (limpia el cache del idioma afectado).
+    - `POST /admin/idiomas/clear-cache` – boton "Limpiar Cache de Traducciones": invalida el cache de todos los idiomas soportados para que los cambios se reflejen de inmediato en el portal publico.
+- Nuevo permiso de navegacion: `admin.idiomas.view`. Se agrega al listado de permisos sincronizables en `RolesController::syncAdminMenuPermissions()`; despues de desplegar, ejecutar `Sincronizar Modulos` desde `/admin/roles` para registrarlo y enlazarlo al `Super Administrador`.
+
+### Buenas practicas al refactorizar textos estaticos
+
+- Usar `__('modulo.seccion.clave', 'Texto original en espanol')` como segundo argumento obligatorio (sirve de fallback y de valor inicial autodetectado).
+- No reemplazar los textos que ya usan `lang('Portal.xxx')` (sistema de idiomas nativo de CodeIgniter con archivos completos por locale) salvo que se decida migrar ese modulo por completo al esquema dinamico.
+- Las claves deben ser descriptivas y namespaced por pagina/seccion para evitar colisiones (ej. `comunidades.hero.title1`, `cortes.filter.title`).

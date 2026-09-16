@@ -16,7 +16,7 @@ $renderField = static function (array $field, string $formCode): string {
 
     return match ($type) {
         'textarea' => '<div class="col-12"><label class="form-label fw-semibold">' . esc($label) . '</label><textarea class="form-control" name="' . $name . '" rows="3" ' . $required . '></textarea>' . ($help !== '' ? '<div class="form-text">' . esc($help) . '</div>' : '') . '</div>',
-        'select' => '<div class="col-12"><label class="form-label fw-semibold">' . esc($label) . '</label><select class="form-select" name="' . $name . '" ' . $required . '><option value="">Selecciona</option></select>' . ($help !== '' ? '<div class="form-text">' . esc($help) . '</div>' : '') . '</div>',
+        'select' => '<div class="col-12"><label class="form-label fw-semibold">' . esc($label) . '</label><select class="form-select" name="' . $name . '" ' . $required . '><option value="">' . esc(__('gu.field.select.placeholder', 'Selecciona')) . '</option></select>' . ($help !== '' ? '<div class="form-text">' . esc($help) . '</div>' : '') . '</div>',
         'checkbox' => '<div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" name="' . $name . '" value="1" id="' . esc($formCode . '_' . $slug) . '"><label class="form-check-label fw-semibold" for="' . esc($formCode . '_' . $slug) . '">' . esc($label) . '</label></div></div>',
         'file' => '<div class="col-12"><label class="form-label fw-semibold">' . esc($label) . '</label><input class="form-control" type="file" name="' . $name . '" ' . $required . '>' . ($help !== '' ? '<div class="form-text">' . esc($help) . '</div>' : '') . '</div>',
         default => '<div class="col-12 col-md-6"><label class="form-label fw-semibold">' . esc($label) . '</label><input class="form-control" type="' . esc($type) . '" name="' . $name . '" ' . $required . '>' . ($help !== '' ? '<div class="form-text">' . esc($help) . '</div>' : '') . '</div>',
@@ -68,14 +68,14 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
 <div class="eco-gateway p-3 p-lg-4 mb-4 animate__animated animate__fadeIn">
     <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
         <div>
-            <p class="text-uppercase small mb-1 opacity-75">Grandes Usuarios ECOE</p>
-            <h2 class="h3 mb-1">Suministro de energia</h2>
-            <p class="mb-0 text-secondary">Selecciona su opcion, completa el formulario y recibe su constancia en PDF.</p>
+            <p class="text-uppercase small mb-1 opacity-75"><?= esc(__('gu.hero.eyebrow', 'Grandes Usuarios ECOE')) ?></p>
+            <h2 class="h3 mb-1"><?= esc(__('gu.hero.title', 'Suministro de energia')) ?></h2>
+            <p class="mb-0 text-secondary"><?= esc(__('gu.hero.subtitle', 'Selecciona su opcion, completa el formulario y recibe su constancia en PDF.')) ?></p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <span class="badge text-bg-dark">Gestiones</span>
-            <span class="badge text-bg-success">Seguimientos</span>
-            <span class="badge text-bg-info">Comentarios</span>
+            <span class="badge text-bg-dark"><?= esc(__('gu.hero.badge.gestiones', 'Gestiones')) ?></span>
+            <span class="badge text-bg-success"><?= esc(__('gu.hero.badge.seguimientos', 'Seguimientos')) ?></span>
+            <span class="badge text-bg-info"><?= esc(__('gu.hero.badge.comentarios', 'Comentarios')) ?></span>
         </div>
     </div>
 </div>
@@ -84,14 +84,14 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
     <div class="col-12 col-xl-6 eco-swap-col">
         <div id="guOfferCard" class="eco-card card h-100 animate__animated animate__fadeInLeft">
             <div class="card-header p-4">
-                <h3 class="h4 mb-1"><i class="bi bi-lightning-charge-fill me-2"></i>¿Esta interesado en recibir oferta de suministro de Energia?</h3>
-                <p class="mb-0 opacity-75">Formulario GU1</p>
+                <h3 class="h4 mb-1"><i class="bi bi-lightning-charge-fill me-2"></i><?= esc(__('gu.offer.card.title', '¿Esta interesado en recibir oferta de suministro de Energia?')) ?></h3>
+                <p class="mb-0 opacity-75"><?= esc(__('gu.offer.card.formLabel', 'Formulario GU1')) ?></p>
             </div>
             <div class="card-body p-4 d-flex flex-column">
-                <p class="text-secondary">Completa la solicitud y el sistema te entregará una constancia en formato PDF</p>
+                <p class="text-secondary"><?= esc(__('gu.offer.card.description', 'Completa la solicitud y el sistema te entregará una constancia en formato PDF')) ?></p>
                 <div class="mt-auto d-grid gap-2">
-                    <button class="btn btn-primary btn-lg w-100" type="button" onclick="showGuSection('offer')">Abrir formulario GU1</button>
-                    <button class="btn btn-outline-primary" type="button" onclick="openGuContinueModal()">Continuar proceso GU1</button>
+                    <button class="btn btn-primary btn-lg w-100" type="button" onclick="showGuSection('offer')"><?= esc(__('gu.offer.card.openButton', 'Abrir formulario GU1')) ?></button>
+                    <button class="btn btn-outline-primary" type="button" onclick="openGuContinueModal()"><?= esc(__('gu.offer.card.continueButton', 'Continuar proceso GU1')) ?></button>
                 </div>
             </div>
         </div>
@@ -99,8 +99,8 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
         <div id="guComplaintSection" class="eco-card card eco-card--dark h-100 eco-section-hidden animate__animated animate__fadeInUp">
             <div class="card-header p-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 class="h4 mb-1">Usted ya es Gran Usuario del INDE</h3>
-                    <p class="mb-0 opacity-75">¿Desea realizar alguna gestion?</p>
+                    <h3 class="h4 mb-1"><?= esc(__('gu.complaint.section.title', 'Usted ya es Gran Usuario del INDE')) ?></h3>
+                    <p class="mb-0 opacity-75"><?= esc(__('gu.complaint.section.subtitle', '¿Desea realizar alguna gestion?')) ?></p>
                 </div>
                 <button class="btn btn-sm btn-light" type="button" onclick="hideGuSection()"><i class="bi bi-x-lg"></i></button>
             </div>
@@ -112,12 +112,12 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
                             <?= $renderField((array) $field, 'GU2') ?>
                         <?php endforeach; ?>
                         <div class="col-12 d-flex gap-2 justify-content-end pt-2">
-                            <button class="btn btn-outline-secondary" type="button" onclick="hideGuSection()">Cancelar</button>
-                            <button class="btn btn-dark" type="submit"><i class="bi bi-chat-dots me-1"></i>Enviar y descargar PDF</button>
+                            <button class="btn btn-outline-secondary" type="button" onclick="hideGuSection()"><?= esc(__('gu.form.cancelButton', 'Cancelar')) ?></button>
+                            <button class="btn btn-dark" type="submit"><i class="bi bi-chat-dots me-1"></i><?= esc(__('gu.complaint.form.submitButton', 'Enviar y descargar PDF')) ?></button>
                         </div>
                     </form>
                 <?php else: ?>
-                    <div class="alert alert-warning mb-0">El formulario GU2 todavía no está disponible.</div>
+                    <div class="alert alert-warning mb-0"><?= esc(__('gu.complaint.form.unavailable', 'El formulario GU2 todavía no está disponible.')) ?></div>
                 <?php endif; ?>
             </div>
         </div>
@@ -126,13 +126,13 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
     <div class="col-12 col-xl-6 eco-swap-col">
         <div id="guComplaintCard" class="eco-card eco-card--dark card h-100 animate__animated animate__fadeInRight">
             <div class="card-header p-4">
-                <h3 class="h4 mb-1"><i class="bi bi-chat-square-dots-fill me-2"></i>Usted ya es gran Usuario del INDE</h3>
-                <p class="mb-0 opacity-75">¿Desea realizar alguna gestion?</p>
+                <h3 class="h4 mb-1"><i class="bi bi-chat-square-dots-fill me-2"></i><?= esc(__('gu.complaint.card.title', 'Usted ya es gran Usuario del INDE')) ?></h3>
+                <p class="mb-0 opacity-75"><?= esc(__('gu.complaint.section.subtitle', '¿Desea realizar alguna gestion?')) ?></p>
             </div>
             <div class="card-body p-4 d-flex flex-column">
-                <p class="text-secondary">Registra tu queja o comentario y descarga un comprobante con instrucciones en pdf.</p>
+                <p class="text-secondary"><?= esc(__('gu.complaint.card.description', 'Registra tu queja o comentario y descarga un comprobante con instrucciones en pdf.')) ?></p>
                 <div class="mt-auto">
-                    <button class="btn btn-dark btn-lg w-100" type="button" onclick="showGuSection('complaint')">Abrir formulario GU2</button>
+                    <button class="btn btn-dark btn-lg w-100" type="button" onclick="showGuSection('complaint')"><?= esc(__('gu.complaint.card.openButton', 'Abrir formulario GU2')) ?></button>
                 </div>
             </div>
         </div>
@@ -140,8 +140,8 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
         <div id="guOfferSection" class="eco-card card h-100 eco-section-hidden animate__animated animate__fadeInUp">
             <div class="card-header p-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 class="h4 mb-1">Oferta de Suministro</h3>
-                    <p class="mb-0 opacity-75">GU1 · formulario dinámico</p>
+                    <h3 class="h4 mb-1"><?= esc(__('gu.offer.section.title', 'Oferta de Suministro')) ?></h3>
+                    <p class="mb-0 opacity-75"><?= esc(__('gu.offer.section.subtitle', 'GU1 · formulario dinámico')) ?></p>
                 </div>
                 <button class="btn btn-sm btn-light" type="button" onclick="hideGuSection()"><i class="bi bi-x-lg"></i></button>
             </div>
@@ -153,12 +153,12 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
                             <?= $renderField((array) $field, 'GU1') ?>
                         <?php endforeach; ?>
                         <div class="col-12 d-flex gap-2 justify-content-end pt-2">
-                            <button class="btn btn-outline-secondary" type="button" onclick="hideGuSection()">Cancelar</button>
-                            <button class="btn btn-primary" type="submit"><i class="bi bi-file-earmark-pdf me-1"></i>Generar PDF</button>
+                            <button class="btn btn-outline-secondary" type="button" onclick="hideGuSection()"><?= esc(__('gu.form.cancelButton', 'Cancelar')) ?></button>
+                            <button class="btn btn-primary" type="submit"><i class="bi bi-file-earmark-pdf me-1"></i><?= esc(__('gu.offer.form.submitButton', 'Generar PDF')) ?></button>
                         </div>
                     </form>
                 <?php else: ?>
-                    <div class="alert alert-warning mb-0">El formulario GU1 todavía no está disponible.</div>
+                    <div class="alert alert-warning mb-0"><?= esc(__('gu.offer.form.unavailable', 'El formulario GU1 todavía no está disponible.')) ?></div>
                 <?php endif; ?>
             </div>
         </div>
@@ -169,27 +169,27 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="guSubmitSuccessModalLabel">Envio completado</h5>
+                <h5 class="modal-title" id="guSubmitSuccessModalLabel"><?= esc(__('gu.successModal.title', 'Envio completado')) ?></h5>
             </div>
             <div class="modal-body" id="guSubmitSuccessModalBody">
-                Tus datos se enviaron correctamente. Presiona Aceptar para volver al panel principal y limpiar el formulario.
+                <?= esc(__('gu.successModal.defaultBody', 'Tus datos se enviaron correctamente. Presiona Aceptar para volver al panel principal y limpiar el formulario.')) ?>
             </div>
             <div class="modal-body pt-0 eco-section-hidden" id="gu1PostSubmitActions">
                 <div class="alert alert-info mb-3">
-                    Descarga la plantilla Word, completala y luego usa Continuar proceso GU1 para subir el archivo final con tu referencia.
+                    <?= esc(__('gu.successModal.gu1Instructions', 'Descarga la plantilla Word, completala y luego usa Continuar proceso GU1 para subir el archivo final con tu referencia.')) ?>
                 </div>
                 <div class="d-grid gap-2">
                     <a class="btn btn-outline-primary" id="gu1TemplateDownloadBtn" href="<?= esc($gu1TemplateDownloadUrl) ?>" target="_blank" rel="noopener">
-                        <i class="bi bi-file-earmark-word me-1"></i>Descargar plantilla Word GU1
+                        <i class="bi bi-file-earmark-word me-1"></i><?= esc(__('gu.successModal.downloadTemplate', 'Descargar plantilla Word GU1')) ?>
                     </a>
-                    <button type="button" class="btn btn-primary" id="gu1OpenContinueFromSuccessBtn">Continuar proceso GU1</button>
+                    <button type="button" class="btn btn-primary" id="gu1OpenContinueFromSuccessBtn"><?= esc(__('gu.offer.card.continueButton', 'Continuar proceso GU1')) ?></button>
                 </div>
                 <div class="small text-muted mt-2">
-                    Ruta para cargar la plantilla en servidor: <?= esc($gu1TemplateUploadPath) ?>
+                    <?= esc(__('gu.successModal.uploadPathLabel', 'Ruta para cargar la plantilla en servidor:')) ?> <?= esc($gu1TemplateUploadPath) ?>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-success" id="guConfirmSubmitModalBtn">Aceptar</button>
+                <button type="button" class="btn btn-success" id="guConfirmSubmitModalBtn"><?= esc(__('gu.successModal.acceptButton', 'Aceptar')) ?></button>
             </div>
         </div>
     </div>
@@ -199,31 +199,31 @@ $gu1TemplateUploadPath = 'writable/uploads/ecoe/plantillas/gu1/plantilla_gu1.doc
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="guContinueProcessModalLabel">Continuar proceso GU1</h5>
+                <h5 class="modal-title" id="guContinueProcessModalLabel"><?= esc(__('gu.offer.card.continueButton', 'Continuar proceso GU1')) ?></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="guContinueProcessForm" enctype="multipart/form-data">
                 <div class="modal-body">
                     <?= csrf_field() ?>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold" for="guContinueReferenceInput">Codigo de referencia</label>
+                        <label class="form-label fw-semibold" for="guContinueReferenceInput"><?= esc(__('gu.continueModal.referenceLabel', 'Codigo de referencia')) ?></label>
                         <div class="input-group">
                             <input class="form-control" type="text" id="guContinueReferenceInput" name="codigo_referencia" placeholder="Ej. GU1-12345-0000123" required>
-                            <button class="btn btn-outline-primary" type="button" id="guValidateReferenceBtn">Validar</button>
+                            <button class="btn btn-outline-primary" type="button" id="guValidateReferenceBtn"><?= esc(__('gu.continueModal.validateButton', 'Validar')) ?></button>
                         </div>
-                        <div class="form-text">Ingresa la referencia generada en el PDF de GU1.</div>
+                        <div class="form-text"><?= esc(__('gu.continueModal.referenceHelp', 'Ingresa la referencia generada en el PDF de GU1.')) ?></div>
                     </div>
 
                     <div class="alert eco-section-hidden" id="guContinueFeedback" role="alert"></div>
 
                     <div class="mb-3 eco-section-hidden" id="guContinueUploadWrap">
-                        <label class="form-label fw-semibold" for="guContinueFileInput">Archivo completado (DOC, DOCX o PDF)</label>
+                        <label class="form-label fw-semibold" for="guContinueFileInput"><?= esc(__('gu.continueModal.fileLabel', 'Archivo completado (DOC, DOCX o PDF)')) ?></label>
                         <input class="form-control" type="file" id="guContinueFileInput" name="archivo_completado_gu1" accept=".doc,.docx,.pdf" required>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="guContinueSubmitBtn" disabled>Aceptar archivo lleno</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><?= esc(__('gu.form.cancelButton', 'Cancelar')) ?></button>
+                    <button type="submit" class="btn btn-primary" id="guContinueSubmitBtn" disabled><?= esc(__('gu.continueModal.acceptFileButton', 'Aceptar archivo lleno')) ?></button>
                 </div>
             </form>
         </div>

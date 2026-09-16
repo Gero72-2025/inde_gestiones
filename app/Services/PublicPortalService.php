@@ -104,7 +104,39 @@ class PublicPortalService
         return $result;
     }
 
-    public function listCortes(string $locale, string $departamento = '', string $municipio = ''): array
+    public function getDepartamentos(): array
+    {
+        if (! $this->db->tableExists('cat_departamentos')) {
+            return [];
+        }
+
+        return $this->db->table('cat_departamentos')
+            ->select('id, nombre')
+            ->where('status', 'active')
+            ->orderBy('nombre', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    public function getMunicipios(int $departamentoId = 0): array
+    {
+        if (! $this->db->tableExists('cat_municipios')) {
+            return [];
+        }
+
+        $builder = $this->db->table('cat_municipios')
+            ->select('id, departamento_id, nombre')
+            ->where('status', 'active')
+            ->orderBy('nombre', 'ASC');
+
+        if ($departamentoId > 0) {
+            $builder->where('departamento_id', $departamentoId);
+        }
+
+        return $builder->get()->getResultArray();
+    }
+
+    public function listCortes(string $locale, int $departamentoId = 0, int $municipioId = 0): array
     {
         if (! $this->db->tableExists('etcee_cortes') || ! $this->db->tableExists('etcee_cortes_ubicaciones')) {
             return [];
@@ -131,24 +163,16 @@ class PublicPortalService
             . ($hasMunicipios ? ', m.nombre AS municipio' : ', cu.municipio_id AS municipio')
         );
 
-        if ($hasDepartamentos) {
-            $builder->orderBy('d.nombre', 'ASC');
-            if ($departamento !== '') {
-                $builder->like('d.nombre', $departamento);
-            }
-        } else {
-            $builder->orderBy('cu.departamento_id', 'ASC');
+        if ($departamentoId > 0) {
+            $builder->where('cu.departamento_id', $departamentoId);
         }
 
-        if ($hasMunicipios) {
-            $builder->orderBy('m.nombre', 'ASC');
-            if ($municipio !== '') {
-                $builder->like('m.nombre', $municipio);
-            }
-        } else {
-            $builder->orderBy('cu.municipio_id', 'ASC');
+        if ($municipioId > 0) {
+            $builder->where('cu.municipio_id', $municipioId);
         }
 
+        $builder->orderBy($hasDepartamentos ? 'd.nombre' : 'cu.departamento_id', 'ASC');
+        $builder->orderBy($hasMunicipios ? 'm.nombre' : 'cu.municipio_id', 'ASC');
         $builder->orderBy('c.fecha_inicio', 'ASC');
 
         $rows = $builder->get()->getResultArray();
@@ -336,6 +360,18 @@ class PublicPortalService
             $select[] = 'background_image_path';
         }
 
+        if (in_array('show_header', $fields, true)) {
+            $select[] = 'show_header';
+        }
+
+        if (in_array('footer_background_image_path', $fields, true)) {
+            $select[] = 'footer_background_image_path';
+        }
+
+        if (in_array('show_footer', $fields, true)) {
+            $select[] = 'show_footer';
+        }
+
         if (in_array('parent_id', $fields, true)) {
             $select[] = 'parent_id';
         }
@@ -379,6 +415,9 @@ class PublicPortalService
                 'route_path' => $routePath,
                 'icon_class' => trim((string) ($row['icon_class'] ?? 'bi-grid')) ?: 'bi-grid',
                 'background_image_path' => trim((string) ($row['background_image_path'] ?? '')) ?: null,
+                'show_header' => ! array_key_exists('show_header', $row) || (int) $row['show_header'] !== 0,
+                'footer_background_image_path' => trim((string) ($row['footer_background_image_path'] ?? '')) ?: null,
+                'show_footer' => ! array_key_exists('show_footer', $row) || (int) $row['show_footer'] !== 0,
                 'page_key' => $this->inferPageKey($routePath),
                 'children' => [],
             ];

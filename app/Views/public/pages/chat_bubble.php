@@ -1,15 +1,15 @@
 <?php
-    $chatTitle = trim((string) ($chatWidgetTitle ?? 'Asistente INDE'));
-    $chatSubtitle = trim((string) ($chatWidgetSubtitle ?? 'En línea ahora'));
-    $chatPlaceholder = trim((string) ($chatWidgetPlaceholder ?? 'Escribe tu pregunta...'));
-    $chatIntro = trim((string) ($chatWidgetIntro ?? '¿Qué empresa necesitas apoyar?'));
+    $chatTitle = trim((string) ($chatWidgetTitle ?? __('chat.title', 'Asistente INDE')));
+    $chatSubtitle = trim((string) ($chatWidgetSubtitle ?? __('chat.subtitle', 'En línea ahora')));
+    $chatPlaceholder = trim((string) ($chatWidgetPlaceholder ?? __('chat.placeholder', 'Escribe tu pregunta...')));
+    $chatIntro = trim((string) ($chatWidgetIntro ?? __('chat.intro', '¿Qué empresa necesitas apoyar?')));
     $tarifaEndpoint = trim((string) ($chatWidgetTarifaSocialEndpoint ?? ''));
 ?>
 
 <div class="chat-bubble-shell" data-chat-shell>
-    <button class="chat-bubble-trigger" type="button" data-chat-open aria-label="Abrir asistente">
+    <button class="chat-bubble-trigger" type="button" data-chat-open aria-label="<?= esc(__('chat.open.aria', 'Abrir asistente')) ?>">
         <i class="bi bi-robot"></i>
-        <span>Ayuda</span>
+        <span><?= esc(__('chat.open.label', 'Ayuda')) ?></span>
     </button>
 
     <div class="chat-bubble-panel" data-chat-panel aria-hidden="true">

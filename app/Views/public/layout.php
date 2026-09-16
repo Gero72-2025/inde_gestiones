@@ -33,26 +33,34 @@
         h1, h2, h3, h4 { font-family: 'Newsreader', serif; }
 
         .hero {
-            background:
-                radial-gradient(1200px 380px at 20% -5%, rgba(255, 209, 102, .28) 0%, rgba(255, 209, 102, 0) 60%),
-                radial-gradient(900px 320px at 85% 0%, rgba(255, 255, 255, .18) 0%, rgba(255, 255, 255, 0) 60%),
-                linear-gradient(135deg, #0b4a66 0%, #1b7c79 56%, #2c9f78 100%);
+            background: #0b4a66;
             color: #fff;
-            border-bottom-left-radius: 2rem;
-            border-bottom-right-radius: 2rem;
+            border-radius: 2rem;
             box-shadow: 0 20px 38px rgba(7, 49, 71, .22);
             position: relative;
             overflow: hidden;
+            margin: 10px 50px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
         }
 
-        .hero::after {
-            content: '';
-            position: absolute;
-            inset: auto -8% -36% auto;
-            width: 340px;
-            height: 340px;
-            background: radial-gradient(circle at 35% 35%, rgba(255, 209, 102, .22) 0%, rgba(255, 209, 102, 0) 70%);
-            pointer-events: none;
+        .hero > .container {
+            width: 100%;
+        }
+
+        @media (max-width: 991.98px) {
+            .hero {
+                margin: 10px 20px;
+                min-height: 320px;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .hero {
+                margin: 10px;
+                min-height: auto;
+            }
         }
 
         .hero-company-bg {
@@ -61,14 +69,86 @@
             z-index: 1;
             background-position: center;
             background-repeat: no-repeat;
-            background-size: clamp(360px, 54vw, 760px);
-            opacity: .14;
+            background-size: cover;
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        .hero-scrim {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            background: linear-gradient(180deg, rgba(6, 26, 38, .55) 0%, rgba(6, 26, 38, .28) 45%, rgba(6, 26, 38, .55) 100%);
             pointer-events: none;
         }
 
         .hero > .container {
             position: relative;
+            z-index: 3;
+        }
+
+        .site-footer {
+            background: #0b4a66;
+            color: #fff;
+            border-radius: 2rem;
+            box-shadow: 0 20px 38px rgba(7, 49, 71, .22);
+            position: relative;
+            overflow: hidden;
+            margin: 10px 50px;
+        }
+
+        .site-footer.has-bg {
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+        }
+
+        .site-footer.has-bg > .container {
+            width: 100%;
+        }
+
+        @media (max-width: 991.98px) {
+            .site-footer {
+                margin: 10px 20px;
+            }
+
+            .site-footer.has-bg {
+                min-height: 320px;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .site-footer {
+                margin: 10px;
+            }
+
+            .site-footer.has-bg {
+                min-height: auto;
+            }
+        }
+
+        .footer-company-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        .footer-scrim {
+            position: absolute;
+            inset: 0;
             z-index: 2;
+            background: linear-gradient(180deg, rgba(6, 26, 38, .55) 0%, rgba(6, 26, 38, .28) 45%, rgba(6, 26, 38, .55) 100%);
+            pointer-events: none;
+        }
+
+        .portal-nav-wrap {
+            margin-top: 1rem;
+            margin-bottom: 1rem;
         }
 
         .header-controls {
@@ -81,11 +161,11 @@
 
         .portal-nav-shell {
             position: relative;
-            border: 1px solid rgba(255, 255, 255, .32);
-            background: linear-gradient(180deg, rgba(255, 255, 255, .18) 0%, rgba(255, 255, 255, .08) 100%);
+            border: 1px solid #d8e6ef;
+            background: #fff;
             border-radius: 1rem;
             padding: .8rem;
-            margin-bottom: 1rem;
+            box-shadow: 0 10px 20px rgba(13, 57, 86, .08);
             overflow: visible;
         }
 
@@ -98,9 +178,9 @@
 
         .portal-nav .portal-nav-item,
         .portal-nav .portal-nav-parent {
-            border: 1px solid var(--hero-chip-border);
-            background: var(--hero-chip-bg);
-            color: #fff;
+            border: 1px solid #cfe3ee;
+            background: #eef6fb;
+            color: var(--brand-a);
             border-radius: 999px;
             padding: .45rem .9rem;
             font-size: .88rem;
@@ -112,8 +192,8 @@
         .portal-nav .portal-nav-parent:hover,
         .portal-nav .portal-nav-item:focus-visible,
         .portal-nav .portal-nav-parent:focus-visible {
-            border-color: rgba(255, 255, 255, .6);
-            background: rgba(255, 255, 255, .34);
+            border-color: var(--brand-a);
+            background: var(--brand-a);
             color: #fff;
             transform: translateY(-1px);
             box-shadow: 0 8px 16px rgba(7, 49, 71, .2);
@@ -132,7 +212,8 @@
             font-size: .82rem;
             letter-spacing: .03em;
             text-transform: uppercase;
-            color: rgba(255, 255, 255, .88);
+            color: var(--ink);
+            opacity: .72;
             margin-bottom: .45rem;
             display: inline-flex;
             align-items: center;
@@ -225,10 +306,7 @@
         }
 
         .hero-panel {
-            background:
-                radial-gradient(900px 360px at 15% 0%, rgba(255, 209, 102, .24) 0%, rgba(255, 209, 102, 0) 58%),
-                radial-gradient(760px 280px at 85% 8%, rgba(255, 255, 255, .18) 0%, rgba(255, 255, 255, 0) 60%),
-                linear-gradient(135deg, #0b4f8a 0%, #1668af 58%, #2b86d1 100%);
+            background:#181630;
             color: #fff;
             box-shadow: 0 22px 42px rgba(7, 49, 71, .18);
         }
@@ -506,31 +584,211 @@
                 padding: .35rem;
             }
         }
+
+        .top-access-bar {
+            background: #06263a;
+            color: #eaf4fa;
+            font-size: .82rem;
+            padding: .4rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        .top-access-bar .container {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: .6rem;
+        }
+
+        .top-access-bar .btn-access {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, .28);
+            color: #eaf4fa;
+            border-radius: .6rem;
+            padding: .25rem .55rem;
+            font-size: .78rem;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+        }
+
+        .top-access-bar .btn-access:hover,
+        .top-access-bar .btn-access:focus-visible {
+            background: rgba(255, 255, 255, .12);
+            color: #fff;
+        }
+
+        .top-access-bar .dropdown-menu {
+            font-size: .86rem;
+            min-width: 10rem;
+        }
+
+        .top-access-bar .dropdown-item.active {
+            background: var(--brand-a);
+            color: #fff;
+        }
+
+        body.high-contrast {
+            filter: contrast(1.3) grayscale(.15);
+        }
+
+        body.high-contrast .hero,
+        body.high-contrast .site-footer {
+            background: #000 !important;
+        }
     </style>
 </head>
 <body>
+<div class="top-access-bar" role="region" aria-label="<?= esc(__('accessibility.bar.label', 'Barra de accesibilidad e idiomas')) ?>">
+    <div class="container">
+        <div class="dropdown">
+            <button
+                class="btn-access dropdown-toggle"
+                type="button"
+                id="topBarLanguageToggle"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+            >
+                <i class="bi bi-translate"></i>
+                <span id="topBarLanguageLabel">
+                    <?php
+                        $activeLocaleLabel = $currentLocale ?? 'es';
+                        foreach (($localeOptions ?? []) as $localeOption) {
+                            if (($localeOption['code'] ?? '') === ($currentLocale ?? 'es')) {
+                                $activeLocaleLabel = $localeOption['label'] ?? $activeLocaleLabel;
+                                break;
+                            }
+                        }
+                        echo esc($activeLocaleLabel);
+                    ?>
+                </span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="topBarLanguageToggle">
+                <?php foreach (($localeOptions ?? []) as $localeOption): ?>
+                    <li>
+                        <a
+                            class="dropdown-item js-topbar-language <?= ($localeOption['code'] ?? '') === ($currentLocale ?? 'es') ? 'active' : '' ?>"
+                            href="#"
+                            data-lang="<?= esc($localeOption['code'] ?? '') ?>"
+                        ><?= esc($localeOption['label'] ?? '') ?></a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <button type="button" class="btn-access" id="topBarFontIncrease" title="<?= esc(__('accessibility.font.increase', 'Aumentar tamano de texto')) ?>">
+            <i class="bi bi-zoom-in"></i> A+
+        </button>
+        <button type="button" class="btn-access" id="topBarFontDecrease" title="<?= esc(__('accessibility.font.decrease', 'Disminuir tamano de texto')) ?>">
+            <i class="bi bi-zoom-out"></i> A-
+        </button>
+        <button type="button" class="btn-access" id="topBarContrastToggle" title="<?= esc(__('accessibility.contrast.toggle', 'Alternar alto contraste')) ?>">
+            <i class="bi bi-circle-half"></i>
+        </button>
+    </div>
+</div>
+<script>
+(function () {
+    var setLanguageUrl = <?= json_encode(site_url('api/public/set-language')) ?>;
+    var csrfName = <?= json_encode(csrf_token()) ?>;
+    var csrfHash = <?= json_encode(csrf_hash()) ?>;
+
+    document.querySelectorAll('.js-topbar-language').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            event.preventDefault();
+            var lang = link.getAttribute('data-lang');
+            if (!lang) { return; }
+
+            var body = new FormData();
+            body.append('lang', lang);
+            body.append(csrfName, csrfHash);
+
+            fetch(setLanguageUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: body,
+            })
+                .then(function (response) { return response.json(); })
+                .then(function () { window.location.reload(); })
+                .catch(function () { window.location.reload(); });
+        });
+    });
+
+    var root = document.documentElement;
+    var fontStep = parseFloat(localStorage.getItem('portalFontScale') || '1');
+
+    function applyFontScale(scale) {
+        fontStep = Math.min(1.4, Math.max(0.85, scale));
+        root.style.fontSize = (fontStep * 100) + '%';
+        localStorage.setItem('portalFontScale', String(fontStep));
+    }
+
+    applyFontScale(fontStep);
+
+    document.getElementById('topBarFontIncrease')?.addEventListener('click', function () { applyFontScale(fontStep + 0.1); });
+    document.getElementById('topBarFontDecrease')?.addEventListener('click', function () { applyFontScale(fontStep - 0.1); });
+
+    var contrastOn = localStorage.getItem('portalHighContrast') === '1';
+    function applyContrast(on) {
+        contrastOn = on;
+        document.body.classList.toggle('high-contrast', on);
+        localStorage.setItem('portalHighContrast', on ? '1' : '0');
+    }
+    applyContrast(contrastOn);
+    document.getElementById('topBarContrastToggle')?.addEventListener('click', function () { applyContrast(!contrastOn); });
+})();
+</script>
 <?php
-    $activeParentBackgroundPath = '';
+    $activeHeaderBackgroundPath = '';
+    $activeFooterBackgroundPath = '';
+    $activeShowHeader = true;
+    $activeShowFooter = true;
+
     foreach (($publicMenuItems ?? []) as $menuItem) {
         $menuChildren = is_array($menuItem['children'] ?? null) ? $menuItem['children'] : [];
+
+        if (($page ?? '') === ($menuItem['page_key'] ?? '') && trim((string) ($menuItem['route_path'] ?? '')) !== '') {
+            $activeHeaderBackgroundPath = trim((string) ($menuItem['background_image_path'] ?? ''));
+            $activeFooterBackgroundPath = trim((string) ($menuItem['footer_background_image_path'] ?? ''));
+            $activeShowHeader = ! array_key_exists('show_header', $menuItem) || (bool) $menuItem['show_header'];
+            $activeShowFooter = ! array_key_exists('show_footer', $menuItem) || (bool) $menuItem['show_footer'];
+            break;
+        }
+
         if ((int) ($menuItem['is_dropdown'] ?? 0) !== 1 || $menuChildren === []) {
             continue;
         }
 
         foreach ($menuChildren as $menuChild) {
             if (($page ?? '') === ($menuChild['page_key'] ?? '')) {
-                $activeParentBackgroundPath = trim((string) ($menuItem['background_image_path'] ?? ''));
+                // Prioridad: imagen propia del hijo; si no tiene, se usa la del padre.
+                $childBackgroundPath = trim((string) ($menuChild['background_image_path'] ?? ''));
+                $activeHeaderBackgroundPath = $childBackgroundPath !== ''
+                    ? $childBackgroundPath
+                    : trim((string) ($menuItem['background_image_path'] ?? ''));
+
+                $childFooterBackgroundPath = trim((string) ($menuChild['footer_background_image_path'] ?? ''));
+                $activeFooterBackgroundPath = $childFooterBackgroundPath !== ''
+                    ? $childFooterBackgroundPath
+                    : trim((string) ($menuItem['footer_background_image_path'] ?? ''));
+
+                $activeShowHeader = ! array_key_exists('show_header', $menuChild) || (bool) $menuChild['show_header'];
+                $activeShowFooter = ! array_key_exists('show_footer', $menuChild) || (bool) $menuChild['show_footer'];
                 break 2;
             }
         }
     }
 ?>
 
+<?php if ($activeShowHeader): ?>
 <header class="hero py-4 py-lg-5">
-    <?php if ($activeParentBackgroundPath !== ''): ?>
-        <div class="hero-company-bg" style="background-image: url('<?= esc(base_url($activeParentBackgroundPath)) ?>');" aria-hidden="true"></div>
+    <?php if ($activeHeaderBackgroundPath !== ''): ?>
+        <div class="hero-company-bg" style="background-image: url('<?= esc(base_url($activeHeaderBackgroundPath)) ?>');" aria-hidden="true"></div>
+        <div class="hero-scrim" aria-hidden="true"></div>
     <?php endif; ?>
-    <div class="container">
+    <!-- <div class="container">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 header-controls">
             <span class="badge text-bg-light text-dark"><?= esc(lang('Portal.headerBadge')) ?></span>
             <div class="d-flex align-items-center gap-2">
@@ -548,65 +806,6 @@
         <h1 class="display-5 mb-2"><?= esc($heroTitle ?? lang('Portal.heroTitle')) ?></h1>
         <p class="lead mb-3"><?= esc($heroLead ?? lang('Portal.heroLead')) ?></p>
 
-        <p class="portal-nav-label"><i class="bi bi-compass"></i> Servicios más consultados</p>
-        <div class="portal-nav-shell">
-            <nav class="portal-nav d-flex flex-wrap gap-2" aria-label="Navegacion publica">
-                <a class="btn btn-sm portal-nav-item <?= ($page ?? '') === 'home' ? 'active' : '' ?>" href="<?= esc(site_url('/')) ?>">
-                    <i class="bi bi-house-door me-1"></i><?= esc(lang('Portal.navHome')) ?>
-                </a>
-
-                <?php foreach (($publicMenuItems ?? []) as $index => $item): ?>
-                    <?php
-                        $children = is_array($item['children'] ?? null) ? $item['children'] : [];
-                        $isDropdown = (int) ($item['is_dropdown'] ?? 0) === 1 && $children !== [];
-                        $isParentActive = false;
-
-                        foreach ($children as $child) {
-                            if (($page ?? '') === ($child['page_key'] ?? '')) {
-                                $isParentActive = true;
-                                break;
-                            }
-                        }
-
-                        if (! $isParentActive && ! $isDropdown) {
-                            $isParentActive = ($page ?? '') === ($item['page_key'] ?? '');
-                        }
-                    ?>
-
-                    <?php if ($isDropdown): ?>
-                        <div class="dropdown">
-                            <button
-                                class="btn btn-sm portal-nav-parent dropdown-toggle <?= $isParentActive ? 'active' : '' ?>"
-                                type="button"
-                                data-bs-toggle="dropdown"
-                                data-bs-auto-close="outside"
-                                aria-expanded="false"
-                                id="publicNavDropdown<?= (int) $index ?>"
-                            >
-                                <i class="bi <?= esc((string) ($item['icon_class'] ?? 'bi-folder2-open')) ?> me-1"></i>
-                                <?= esc((string) ($item['title'] ?? 'Menu')) ?>
-                            </button>
-                            <ul class="dropdown-menu" aria-labelledby="publicNavDropdown<?= (int) $index ?>">
-                                <?php foreach ($children as $child): ?>
-                                    <?php $childActive = ($page ?? '') === ($child['page_key'] ?? ''); ?>
-                                    <li>
-                                        <a class="dropdown-item <?= $childActive ? 'active' : '' ?>" href="<?= esc(site_url((string) ($child['route_path'] ?? ''))) ?>">
-                                            <?= esc((string) ($child['title'] ?? '')) ?>
-                                        </a>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                    <?php elseif (trim((string) ($item['route_path'] ?? '')) !== ''): ?>
-                        <a class="btn btn-sm portal-nav-item <?= $isParentActive ? 'active' : '' ?>" href="<?= esc(site_url((string) ($item['route_path'] ?? ''))) ?>">
-                            <i class="bi <?= esc((string) ($item['icon_class'] ?? 'bi-grid')) ?> me-1"></i>
-                            <?= esc((string) ($item['title'] ?? '')) ?>
-                        </a>
-                    <?php endif; ?>
-                <?php endforeach; ?>
-            </nav>
-        </div>
-
         <?php if (($page ?? '') === 'home'): ?>
             <form id="routeSearchForm" class="input-group input-group-lg portal-search" role="search" aria-label="Busqueda de secciones">
                 <span class="input-group-text search-icon"><i class="bi bi-search"></i></span>
@@ -615,13 +814,87 @@
             </form>
             <p class="portal-search-hint mb-0">Escribe lo que necesitas: factura, beneficiados, cortes o comunidad.</p>
         <?php endif; ?>
-    </div>
+    </div> -->
 </header>
+<?php endif; ?>
+
+<div class="container portal-nav-wrap">
+    <div class="portal-nav-shell">
+        <nav class="portal-nav d-flex flex-wrap gap-2" aria-label="Navegacion publica">
+            <!-- <a class="btn btn-sm portal-nav-item <?= ($page ?? '') === 'home' ? 'active' : '' ?>" href="<?= esc(site_url('/')) ?>">
+                <i class="bi bi-house-door me-1"></i><?= esc(lang('Portal.navHome')) ?>
+            </a> -->
+
+            <?php foreach (($publicMenuItems ?? []) as $index => $item): ?>
+                <?php
+                    $children = is_array($item['children'] ?? null) ? $item['children'] : [];
+                    $isDropdown = (int) ($item['is_dropdown'] ?? 0) === 1 && $children !== [];
+                    $isParentActive = false;
+
+                    foreach ($children as $child) {
+                        if (($page ?? '') === ($child['page_key'] ?? '')) {
+                            $isParentActive = true;
+                            break;
+                        }
+                    }
+
+                    if (! $isParentActive && ! $isDropdown) {
+                        $isParentActive = ($page ?? '') === ($item['page_key'] ?? '');
+                    }
+                ?>
+
+                <?php if ($isDropdown): ?>
+                    <div class="dropdown">
+                        <button
+                            class="btn btn-sm portal-nav-parent dropdown-toggle <?= $isParentActive ? 'active' : '' ?>"
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            data-bs-auto-close="outside"
+                            aria-expanded="false"
+                            id="publicNavDropdown<?= (int) $index ?>"
+                        >
+                            <i class="bi <?= esc((string) ($item['icon_class'] ?? 'bi-folder2-open')) ?> me-1"></i>
+                            <?= esc((string) ($item['title'] ?? 'Menu')) ?>
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="publicNavDropdown<?= (int) $index ?>">
+                            <?php foreach ($children as $child): ?>
+                                <?php $childActive = ($page ?? '') === ($child['page_key'] ?? ''); ?>
+                                <li>
+                                    <a class="dropdown-item <?= $childActive ? 'active' : '' ?>" href="<?= esc(site_url((string) ($child['route_path'] ?? ''))) ?>">
+                                        <?= esc((string) ($child['title'] ?? '')) ?>
+                                    </a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php elseif (trim((string) ($item['route_path'] ?? '')) !== ''): ?>
+                    <a class="btn btn-sm portal-nav-item <?= $isParentActive ? 'active' : '' ?>" href="<?= esc(site_url((string) ($item['route_path'] ?? ''))) ?>">
+                        <i class="bi <?= esc((string) ($item['icon_class'] ?? 'bi-grid')) ?> me-1"></i>
+                        <?= esc((string) ($item['title'] ?? '')) ?>
+                    </a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </nav>
+    </div>
+</div>
 
 <main class="container py-4 py-lg-5">
     <?= view($innerView, $innerData ?? []) ?>
 </main>
 
+<?php if ($activeShowFooter): ?>
+<footer class="site-footer py-4 py-lg-5 mt-4<?= $activeFooterBackgroundPath !== '' ? ' has-bg' : '' ?>">
+    <?php if ($activeFooterBackgroundPath !== ''): ?>
+        <div class="footer-company-bg" style="background-image: url('<?= esc(base_url($activeFooterBackgroundPath)) ?>');" aria-hidden="true"></div>
+        <div class="footer-scrim" aria-hidden="true"></div>
+    <?php endif; ?>
+    <div class="container position-relative" style="z-index: 3;">
+        <p class="mb-0 text-center small">&copy; <?= esc(date('Y')) ?> INDE. Todos los derechos reservados.</p>
+    </div>
+</footer>
+<?php endif; ?>
+
+<?php /* Oculto temporalmente: chat-bubble-shell no se usa en esta fase.
 <?= view('public/pages/chat_bubble', [
     'chatWidgetTitle' => 'Asistente INDE',
     'chatWidgetSubtitle' => 'Responde en tiempo real',
@@ -629,6 +902,7 @@
     'chatWidgetIntro' => '¿Qué empresa necesitas apoyar?',
     'chatWidgetTarifaSocialEndpoint' => site_url('api/ecoe/ts/consultar-nis')
 ]) ?>
+*/ ?>
 
 <button id="whatsappFab" class="btn btn-success whatsapp-fab d-flex align-items-center gap-2 px-3 py-2" type="button">
     <i class="bi bi-whatsapp"></i>
@@ -648,11 +922,94 @@
             beneficiados: <?= json_encode(site_url('api/public/beneficiados')) ?>,
             comunidadesArchivos: <?= json_encode(site_url('api/public/comunidades/archivos')) ?>,
             cortes: <?= json_encode(site_url('api/public/cortes')) ?>,
+            cortesDepartamentos: <?= json_encode(site_url('api/public/cortes/departamentos')) ?>,
+            cortesMunicipios: <?= json_encode(site_url('api/public/cortes/municipios')) ?>,
             sniGeometrias: <?= json_encode(site_url('api/public/sni/geometrias')) ?>
         },
         noResults: <?= json_encode(lang('Portal.noResults')) ?>,
         whatsappMessage: <?= json_encode(lang('Portal.whatsappMessage')) ?>,
-        whatsappBySection: <?= json_encode($whatsappBySection ?? []) ?>
+        whatsappBySection: <?= json_encode($whatsappBySection ?? []) ?>,
+        i18n: <?= json_encode([
+            'cortes' => [
+                'status' => [
+                    'activo' => __('cortes.status.activo', 'Activo'),
+                    'programado' => __('cortes.status.programado', 'Programado'),
+                    'finalizado' => __('cortes.status.finalizado', 'Finalizado'),
+                    'cancelado' => __('cortes.status.cancelado', 'Cancelado'),
+                ],
+                'eventDefaultTitle' => __('cortes.event.defaultTitle', 'Corte de energia'),
+                'detailNoLocations' => __('cortes.detail.noLocations', 'Sin ubicaciones registradas'),
+                'detailNoDescription' => __('cortes.detail.noDescription', 'Sin descripcion'),
+                'allMunicipalities' => __('cortes.filter.allMunicipalities', 'Todos los municipios'),
+            ],
+            'comunidades' => [
+                'phase' => [
+                    'fase_1' => __('comunidades.phase.fase_1.full', 'Fase 1 - Solicitud'),
+                    'fase_2' => __('comunidades.phase.fase_2.full', 'Fase 2 - Pre-Inversion'),
+                    'fase_3' => __('comunidades.phase.fase_3.full', 'Fase 3 - Ejecucion'),
+                ],
+                'phaseShort' => [
+                    'fase_1' => __('comunidades.phase.fase_1.short', 'Fase 1'),
+                    'fase_2' => __('comunidades.phase.fase_2.short', 'Fase 2'),
+                    'fase_3' => __('comunidades.phase.fase_3.short', 'Fase 3'),
+                ],
+                'requirements' => [
+                    'fase_1' => [
+                        __('comunidades.requirements.fase_1.item1', 'Solicitud firmada y sellada por COCODE.'),
+                        __('comunidades.requirements.fase_1.item2', 'Listado de usuarios y croquis de ubicacion.'),
+                        __('comunidades.requirements.fase_1.item3', 'Coordenadas GTM / UTM y resolucion municipal.'),
+                        __('comunidades.requirements.fase_1.item4', 'Clasificacion y registro inicial del expediente.'),
+                    ],
+                    'fase_2' => [
+                        __('comunidades.requirements.fase_2.item1', 'Estudio socioeconomico finalizado.'),
+                        __('comunidades.requirements.fase_2.item2', 'Diseno electrico en validacion.'),
+                        __('comunidades.requirements.fase_2.item3', 'Gestion ambiental y aprobacion SNIP en curso.'),
+                        __('comunidades.requirements.fase_2.item4', 'Verificacion de presupuesto y alcances.'),
+                    ],
+                    'fase_3' => [
+                        __('comunidades.requirements.fase_3.item1', 'Licitacion aprobada y adjudicada.'),
+                        __('comunidades.requirements.fase_3.item2', 'Contratista asignado y orden de inicio.'),
+                        __('comunidades.requirements.fase_3.item3', 'Plan de ejecucion y supervision activos.'),
+                        __('comunidades.requirements.fase_3.item4', 'Cierre tecnico y energizacion programada.'),
+                    ],
+                ],
+                'milestone' => [
+                    'registro' => __('comunidades.milestone.registro', 'Registro de solicitud'),
+                    'faseActual' => __('comunidades.milestone.faseActual', 'Fase actual'),
+                    'estadoActual' => __('comunidades.milestone.estadoActual', 'Estado actual'),
+                    'ultimaActualizacion' => __('comunidades.milestone.ultimaActualizacion', 'Ultima actualizacion'),
+                    'pendiente' => __('comunidades.milestone.pendiente', 'Pendiente'),
+                    'sinActualizar' => __('comunidades.milestone.sinActualizar', 'Sin actualizar'),
+                    'campo' => __('comunidades.milestone.campo', 'Campo'),
+                ],
+                'mappedFields' => [
+                    'cardsTitle' => __('comunidades.mappedFields.cardsTitle', 'Cards'),
+                    'noFieldsForPhase' => __('comunidades.mappedFields.noFieldsForPhase', 'Sin campos configurados para esta fase.'),
+                    'fallbackSolicitud' => __('comunidades.common.solicitud', 'Solicitud'),
+                    'fallbackPreinversion' => __('comunidades.common.preinversion', 'Pre-Inversion'),
+                    'fallbackEjecucion' => __('comunidades.mappedFields.fallbackEjecucion', 'Ejecucion'),
+                    'estadoActiva' => __('comunidades.mappedFields.estadoActiva', 'Activa'),
+                    'estadoRegistrada' => __('comunidades.mappedFields.estadoRegistrada', 'Registrada'),
+                    'estadoEnProceso' => __('comunidades.mappedFields.estadoEnProceso', 'En proceso'),
+                    'estadoPendiente' => __('comunidades.milestone.pendiente', 'Pendiente'),
+                    'estadoEnEjecucion' => __('comunidades.mappedFields.estadoEnEjecucion', 'En ejecucion'),
+                ],
+                'downloads' => [
+                    'none' => __('comunidades.downloads.none', 'No hay documentos disponibles en /assets/archivos.'),
+                    'availableSuffix' => __('comunidades.downloads.availableSuffix', 'documento(s) disponible(s).'),
+                    'loadError' => __('comunidades.downloads.loadError', 'No fue posible cargar los documentos en este momento.'),
+                    'fetchError' => __('comunidades.downloads.fetchError', 'Error al cargar documentos. Intenta nuevamente.'),
+                    'updatedLabel' => __('comunidades.downloads.updatedLabel', 'Actualizado'),
+                    'endpointMissing' => __('comunidades.downloads.endpointMissing', 'No se configuro el endpoint de descargas.'),
+                    'defaultName' => __('comunidades.downloads.defaultName', 'Documento'),
+                ],
+                'search' => [
+                    'noResults' => __('comunidades.search.noResults', 'No se encontraron comunidades con ese criterio.'),
+                    'resultsFoundSuffix' => __('comunidades.search.resultsFoundSuffix', 'resultado(s). Mostrando el primero.'),
+                    'resultsFoundPrefix' => __('comunidades.search.resultsFoundPrefix', 'Se encontraron'),
+                ],
+            ],
+        ], JSON_UNESCAPED_UNICODE) ?>
     };
 
     document.getElementById('localeSwitcher').addEventListener('change', function () {

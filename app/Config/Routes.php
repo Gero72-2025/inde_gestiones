@@ -19,12 +19,15 @@ $routes->group('', ['filter' => 'readOnly'], static function ($routes) {
 	$routes->get('consulta/sni', 'PublicPortalController::sniMap');
 	$routes->get('consulta/cortes', 'PublicController::index');
 	$routes->get('locale/(:segment)', 'PublicPortalController::changeLocale/$1');
+	$routes->post('api/public/set-language', 'PublicPortalController::setLanguage');
 
 	$routes->get('api/public/captcha', 'PublicPortalController::captcha');
 	$routes->post('api/public/beneficiados', 'PublicPortalController::beneficiado');
 	$routes->post('api/gero/comunidades/consultar', 'PublicPortalController::consultarComunidadesGero');
 	$routes->get('api/public/comunidades/archivos', 'PublicPortalController::listarArchivosPublicosComunidades');
 	$routes->get('api/public/cortes', 'PublicPortalController::cortes');
+	$routes->get('api/public/cortes/departamentos', 'PublicPortalController::cortesDepartamentos');
+	$routes->get('api/public/cortes/municipios', 'PublicPortalController::cortesMunicipios');
 	$routes->get('api/public/sni/geometrias', 'PublicPortalController::sniGeometrias');
 
 	// ECOE Tarifa Social – endpoints AJAX públicos

@@ -34,6 +34,7 @@ class PublicController extends BaseController
             'gerencias' => $this->portalService->getGerencias($locale),
             'publicMenuItems' => $this->portalService->getPublicMenuItems($locale),
             'ajaxCipherKey' => (string) env('security.ajaxCipherKey', ''),
+            'departamentos' => $this->portalService->getDepartamentos(),
             'whatsappBySection' => [
                 'hero' => (string) env('portal.whatsappGeneral', '50255550001'),
                 'beneficiados' => (string) env('portal.whatsappTarifaSocial', '50255550011'),
@@ -55,8 +56,8 @@ class PublicController extends BaseController
     public function legacy(): string
     {
         $locale = $this->resolveLocale();
-        $departamento = trim(strip_tags((string) $this->request->getGet('departamento')));
-        $municipio = trim(strip_tags((string) $this->request->getGet('municipio')));
+        $departamentoId = (int) $this->request->getGet('departamento_id');
+        $municipioId = (int) $this->request->getGet('municipio_id');
 
         return view('public/cortes', [
             'currentLocale' => $locale,
@@ -65,7 +66,7 @@ class PublicController extends BaseController
                 'hero' => (string) env('portal.whatsappGeneral', '50255550001'),
                 'cortes' => (string) env('portal.whatsappCortes', '50255550033'),
             ],
-            'initialCortes' => $this->portalService->listCortes($locale, $departamento, $municipio),
+            'initialCortes' => $this->portalService->listCortes($locale, $departamentoId, $municipioId),
         ]);
     }
 

@@ -70,7 +70,7 @@ class Filters extends BaseConfig
         'after' => [
             'pagecache',   // Web Page Caching
             'performance', // Performance Metrics
-            'toolbar',     // Debug Toolbar
+            //'toolbar',     // Debug Toolbar
         ],
     ];
 

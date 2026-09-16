@@ -174,6 +174,9 @@ class PublicMenuController extends AdminBaseController
         }
 
         [$backgroundImagePath, $backgroundError] = $this->resolveBackgroundImagePath($isDropdown, $existing);
+        [$footerBackgroundImagePath, $footerBackgroundError] = $this->resolveFooterBackgroundImagePath($existing);
+
+        $combinedError = $backgroundError ?? $footerBackgroundError;
 
         return [
             'title' => trim(strip_tags((string) $this->request->getPost('title'))),
@@ -189,20 +192,19 @@ class PublicMenuController extends AdminBaseController
             'route_path' => $route,
             'icon_class' => trim(strip_tags((string) $this->request->getPost('icon_class'))) ?: 'bi-grid',
             'background_image_path' => $backgroundImagePath,
+            'show_header' => $this->request->getPost('show_header') ? 1 : 0,
+            'footer_background_image_path' => $footerBackgroundImagePath,
+            'show_footer' => $this->request->getPost('show_footer') ? 1 : 0,
             'parent_id' => $parentId > 0 ? $parentId : null,
             'is_dropdown' => $isDropdown,
             'sort_order' => max((int) $this->request->getPost('sort_order'), 0),
             'is_published' => $this->request->getPost('is_published') ? 1 : 0,
-            '_error' => $backgroundError,
+            '_error' => $combinedError,
         ];
     }
 
     private function resolveBackgroundImagePath(int $isDropdown, ?array $existing): array
     {
-        if ($isDropdown !== 1) {
-            return [null, null];
-        }
-
         $currentPath = trim(strip_tags((string) $this->request->getPost('current_background_image_path')));
 
         if ($currentPath === '' && is_array($existing)) {
@@ -218,7 +220,7 @@ class PublicMenuController extends AdminBaseController
         if ($file !== null && $file->isValid() && ! $file->hasMoved()) {
             $ext = strtolower((string) $file->getClientExtension());
             if ($ext !== 'png') {
-                return [null, 'Solo se permiten imagenes PNG para el fondo del padre.'];
+                return [null, 'Solo se permiten imagenes PNG para el fondo del portal.'];
             }
 
             $targetDir = rtrim(FCPATH, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'portal-nav';
@@ -227,6 +229,40 @@ class PublicMenuController extends AdminBaseController
             }
 
             $filename = 'nav-bg-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.png';
+            $file->move($targetDir, $filename, true);
+
+            return ['uploads/portal-nav/' . $filename, null];
+        }
+
+        return [$currentPath !== '' ? $currentPath : null, null];
+    }
+
+    private function resolveFooterBackgroundImagePath(?array $existing): array
+    {
+        $currentPath = trim(strip_tags((string) $this->request->getPost('current_footer_background_image_path')));
+
+        if ($currentPath === '' && is_array($existing)) {
+            $currentPath = trim((string) ($existing['footer_background_image_path'] ?? ''));
+        }
+
+        if ($this->request->getPost('clear_footer_background_image')) {
+            $currentPath = '';
+        }
+
+        $file = $this->request->getFile('footer_background_image_file');
+
+        if ($file !== null && $file->isValid() && ! $file->hasMoved()) {
+            $ext = strtolower((string) $file->getClientExtension());
+            if ($ext !== 'png') {
+                return [null, 'Solo se permiten imagenes PNG para el fondo del pie de pagina.'];
+            }
+
+            $targetDir = rtrim(FCPATH, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'portal-nav';
+            if (! is_dir($targetDir) && ! @mkdir($targetDir, 0775, true) && ! is_dir($targetDir)) {
+                return [null, 'No fue posible crear el directorio de carga para fondos del portal.'];
+            }
+
+            $filename = 'footer-bg-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.png';
             $file->move($targetDir, $filename, true);
 
             return ['uploads/portal-nav/' . $filename, null];

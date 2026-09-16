@@ -275,6 +275,7 @@ class RolesController extends AdminBaseController
             ['slug' => 'admin.usuarios.view', 'nombre' => 'Gestionar usuarios', 'descripcion' => 'Permite ver y administrar la seccion de usuarios.'],
             ['slug' => 'admin.roles.view', 'nombre' => 'Gestionar roles y permisos', 'descripcion' => 'Permite ver y administrar roles/permisos del sistema.'],
             ['slug' => 'admin.portal_publico.view', 'nombre' => 'Gestionar portal publico', 'descripcion' => 'Permite administrar el menu y secciones del portal publico.'],
+            ['slug' => 'admin.idiomas.view', 'nombre' => 'Gestionar idiomas', 'descripcion' => 'Permite administrar traducciones dinamicas y el cache de idiomas.'],
             ['slug' => 'admin.migrations.view', 'nombre' => 'Gestionar migraciones', 'descripcion' => 'Permite consultar estado de migraciones y ejecutar controles de migracion.'],
             ['slug' => 'admin.logs.view', 'nombre' => 'Ver logs', 'descripcion' => 'Permite consultar logs y actividad del sistema.'],
             ['slug' => 'admin.uploads.view', 'nombre' => 'Gestionar cargas masivas', 'descripcion' => 'Permite acceder a carga masiva y descarga de archivos.'],

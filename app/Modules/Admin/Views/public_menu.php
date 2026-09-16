@@ -53,9 +53,26 @@
                         </div>
                     </div>
                     <div class="col-md-12">
-                        <label class="form-label fw-semibold">Logo de fondo para portal-nav (solo PNG para padres)</label>
+                        <label class="form-label fw-semibold">Imagen de encabezado (solo PNG)</label>
                         <input class="form-control" id="createBackgroundImageFile" name="background_image_file" type="file" accept="image/png">
-                        <small class="text-muted">Solo aplica para registros tipo Padre. Se guarda la ruta de la imagen.</small>
+                        <small class="text-muted">Aplica para padres e hijos. Si un hijo no tiene imagen propia, se usa la del padre.</small>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="show_header" checked>
+                            <label class="form-check-label">Mostrar encabezado</label>
+                        </div>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Imagen de pie de pagina (solo PNG)</label>
+                        <input class="form-control" id="createFooterBackgroundImageFile" name="footer_background_image_file" type="file" accept="image/png">
+                        <small class="text-muted">Aplica para padres e hijos. Si un hijo no tiene imagen propia, se usa la del padre.</small>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="show_footer" checked>
+                            <label class="form-check-label">Mostrar pie de pagina</label>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Orden</label>
@@ -125,7 +142,8 @@
                         </div>
                     </div>
                     <div class="col-md-12">
-                        <label class="form-label fw-semibold">Logo de fondo para portal-nav (solo PNG para padres)</label>
+                        <label class="form-label fw-semibold">Imagen de encabezado (solo PNG)</label>
+                        <small class="text-muted d-block mb-1">Aplica para padres e hijos. Si un hijo no tiene imagen propia, se usa la del padre.</small>
                         <input type="hidden" id="editBackgroundCurrentPath" name="current_background_image_path">
                         <div id="editBackgroundPreview" class="mb-2 d-none">
                             <div class="d-flex align-items-center gap-2 p-2 rounded border bg-light">
@@ -140,6 +158,37 @@
                         <div class="form-check form-switch mt-2">
                             <input class="form-check-input" type="checkbox" id="editClearBackgroundImage" name="clear_background_image">
                             <label class="form-check-label" for="editClearBackgroundImage">Quitar imagen de fondo actual</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="editShowHeader" name="show_header">
+                            <label class="form-check-label">Mostrar encabezado</label>
+                        </div>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Imagen de pie de pagina (solo PNG)</label>
+                        <small class="text-muted d-block mb-1">Aplica para padres e hijos. Si un hijo no tiene imagen propia, se usa la del padre.</small>
+                        <input type="hidden" id="editFooterBackgroundCurrentPath" name="current_footer_background_image_path">
+                        <div id="editFooterBackgroundPreview" class="mb-2 d-none">
+                            <div class="d-flex align-items-center gap-2 p-2 rounded border bg-light">
+                                <img id="editFooterBackgroundPreviewImg" src="" alt="Vista previa" style="height:48px;width:auto;object-fit:contain;border-radius:4px;">
+                                <small class="text-muted flex-grow-1 text-break" id="editFooterBackgroundPathText">(sin imagen)</small>
+                            </div>
+                        </div>
+                        <div id="editFooterBackgroundNoImage" class="mb-2">
+                            <small class="text-muted">Ruta actual: <span id="editFooterBackgroundPathTextAlt">(sin imagen)</span></small>
+                        </div>
+                        <input class="form-control" id="editFooterBackgroundImageFile" name="footer_background_image_file" type="file" accept="image/png">
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" id="editClearFooterBackgroundImage" name="clear_footer_background_image">
+                            <label class="form-check-label" for="editClearFooterBackgroundImage">Quitar imagen de fondo actual</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="editShowFooter" name="show_footer">
+                            <label class="form-check-label">Mostrar pie de pagina</label>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -430,30 +479,19 @@ function toggleDropdownFields(prefix) {
     const isDropdown = document.getElementById(`${prefix}IsDropdown`);
     const routeInput = document.getElementById(`${prefix}Route`);
     const parentSelect = document.getElementById(`${prefix}Parent`);
-    const backgroundInput = document.getElementById(`${prefix}BackgroundImageFile`);
-    const clearBackground = document.getElementById(`${prefix}ClearBackgroundImage`);
     if (!isDropdown || !routeInput || !parentSelect) return;
 
+    // La imagen de encabezado ya no depende de ser padre: aplica para padres e hijos.
     if (isDropdown.checked) {
         routeInput.value = '';
         routeInput.disabled = true;
         parentSelect.value = '';
         parentSelect.disabled = true;
-        if (backgroundInput) backgroundInput.disabled = false;
-        if (clearBackground) clearBackground.disabled = false;
         return;
     }
 
     routeInput.disabled = false;
     parentSelect.disabled = false;
-    if (backgroundInput) {
-        backgroundInput.value = '';
-        backgroundInput.disabled = true;
-    }
-    if (clearBackground) {
-        clearBackground.checked = false;
-        clearBackground.disabled = true;
-    }
 }
 
 function resetCreateMenuForm() {
@@ -464,6 +502,7 @@ function resetCreateMenuForm() {
     document.getElementById('createRoute').value = '';
     document.getElementById('createIsDropdown').checked = false;
     document.getElementById('createBackgroundImageFile').value = '';
+    document.getElementById('createFooterBackgroundImageFile').value = '';
     toggleDropdownFields('create');
 }
 
@@ -473,6 +512,25 @@ function setEditBackgroundPreview(path) {
     const img = document.getElementById('editBackgroundPreviewImg');
     const pathText = document.getElementById('editBackgroundPathText');
     const pathTextAlt = document.getElementById('editBackgroundPathTextAlt');
+    if (path) {
+        img.src = '<?= base_url() ?>' + path;
+        pathText.textContent = path;
+        preview.classList.remove('d-none');
+        noImage.classList.add('d-none');
+    } else {
+        img.src = '';
+        pathTextAlt.textContent = '(sin imagen)';
+        preview.classList.add('d-none');
+        noImage.classList.remove('d-none');
+    }
+}
+
+function setEditFooterBackgroundPreview(path) {
+    const preview = document.getElementById('editFooterBackgroundPreview');
+    const noImage = document.getElementById('editFooterBackgroundNoImage');
+    const img = document.getElementById('editFooterBackgroundPreviewImg');
+    const pathText = document.getElementById('editFooterBackgroundPathText');
+    const pathTextAlt = document.getElementById('editFooterBackgroundPathTextAlt');
     if (path) {
         img.src = '<?= base_url() ?>' + path;
         pathText.textContent = path;
@@ -496,6 +554,10 @@ function resetEditMenuForm() {
     setEditBackgroundPreview(null);
     document.getElementById('editClearBackgroundImage').checked = false;
     document.getElementById('editBackgroundImageFile').value = '';
+    document.getElementById('editFooterBackgroundCurrentPath').value = '';
+    setEditFooterBackgroundPreview(null);
+    document.getElementById('editClearFooterBackgroundImage').checked = false;
+    document.getElementById('editFooterBackgroundImageFile').value = '';
     toggleDropdownFields('edit');
 }
 
@@ -514,6 +576,11 @@ function openEditMenu(id) {
     document.getElementById('editBackgroundCurrentPath').value = row.background_image_path || '';
     setEditBackgroundPreview(row.background_image_path || null);
     document.getElementById('editClearBackgroundImage').checked = false;
+    document.getElementById('editShowHeader').checked = Number(row.show_header) !== 0;
+    document.getElementById('editFooterBackgroundCurrentPath').value = row.footer_background_image_path || '';
+    setEditFooterBackgroundPreview(row.footer_background_image_path || null);
+    document.getElementById('editClearFooterBackgroundImage').checked = false;
+    document.getElementById('editShowFooter').checked = Number(row.show_footer) !== 0;
     document.getElementById('editParent').value = row.parent_id || '';
     document.getElementById('editIsDropdown').checked = Number(row.is_dropdown) === 1;
     document.getElementById('editSort').value = row.sort_order || 100;

@@ -14,7 +14,7 @@
         "ext-intl": "*",
         "ext-mbstring": "*",
         "bacon/bacon-qr-code": "^3.0",
-        "dompdf/dompdf": "^2.0",
+        "dompdf/dompdf": "^3.1",
         "laminas/laminas-escaper": "^2.18",
         "phpoffice/phpspreadsheet": "^5.7",
         "psr/log": "^3.0",
@@ -23,7 +23,6 @@
     "require-dev": {
         "codeigniter/coding-standard": "^1.7",
         "fakerphp/faker": "^1.24",
-        "friendsofphp/php-cs-fixer": "^3.47.1",
         "kint-php/kint": "^6.1",
         "mikey179/vfsstream": "^1.6.12",
         "nexusphp/cs-config": "^3.6",

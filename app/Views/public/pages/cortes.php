@@ -72,16 +72,23 @@
     <div class="cortes-filter-card">
         <div class="d-flex align-items-center mb-3">
             <i class="bi bi-funnel-fill text-primary me-2"></i>
-            <span class="fw-semibold text-secondary text-uppercase" style="font-size:.75rem;letter-spacing:.05em;">Filtrar calendario</span>
+            <span class="fw-semibold text-secondary text-uppercase" style="font-size:.75rem;letter-spacing:.05em;"><?= esc(__('cortes.filter.title', 'Filtrar calendario')) ?></span>
         </div>
         <form id="cortesForm" class="row g-3">
             <div class="col-12 col-md-5">
-                <label class="form-label fw-semibold" for="departamentoInput"><i class="bi bi-geo-alt me-1 text-primary"></i><?= esc(lang('Portal.departmentFilter')) ?></label>
-                <input id="departamentoInput" class="form-control" placeholder="<?= esc(lang('Portal.departmentPlaceholder')) ?>">
+                <label class="form-label fw-semibold" for="departamentoSelect"><i class="bi bi-geo-alt me-1 text-primary"></i><?= esc(lang('Portal.departmentFilter')) ?></label>
+                <select id="departamentoSelect" class="form-select">
+                    <option value=""><?= esc(__('cortes.filter.allDepartments', 'Todos los departamentos')) ?></option>
+                    <?php foreach (($departamentos ?? []) as $departamentoOption): ?>
+                        <option value="<?= (int) ($departamentoOption['id'] ?? 0) ?>"><?= esc((string) ($departamentoOption['nombre'] ?? '')) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="col-12 col-md-5">
-                <label class="form-label fw-semibold" for="municipioInput"><i class="bi bi-pin-map me-1 text-primary"></i><?= esc(lang('Portal.tableMunicipality')) ?></label>
-                <input id="municipioInput" class="form-control" placeholder="Opcional">
+                <label class="form-label fw-semibold" for="municipioSelect"><i class="bi bi-pin-map me-1 text-primary"></i><?= esc(lang('Portal.tableMunicipality')) ?></label>
+                <select id="municipioSelect" class="form-select">
+                    <option value=""><?= esc(__('cortes.filter.allMunicipalities', 'Todos los municipios')) ?></option>
+                </select>
             </div>
             <div class="col-12 col-md-2 d-flex align-items-end">
                 <button class="btn btn-primary w-100" type="submit"><i class="bi bi-search me-1"></i><?= esc(lang('Portal.listButton')) ?></button>
@@ -91,6 +98,7 @@
 
     <div id="cortesCalendar" class="mb-4"></div>
 </section>
+
 
 <div class="modal fade" id="corteDetailModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered corte-detail-modal">
@@ -106,35 +114,35 @@
                 <div class="detail-row">
                     <div class="detail-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-calendar-event"></i></div>
                     <div>
-                        <div class="small text-secondary">Inicio del corte</div>
+                        <div class="small text-secondary"><?= esc(__('cortes.detail.start', 'Inicio del corte')) ?></div>
                         <strong id="corteDetailStart"></strong>
                     </div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-calendar-check"></i></div>
                     <div>
-                        <div class="small text-secondary">Finalización estimada</div>
+                        <div class="small text-secondary"><?= esc(__('cortes.detail.end', 'Finalización estimada')) ?></div>
                         <strong id="corteDetailEnd"></strong>
                     </div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-icon bg-success bg-opacity-10 text-success"><i class="bi bi-geo-alt-fill"></i></div>
                     <div>
-                        <div class="small text-secondary">Zonas afectadas</div>
+                        <div class="small text-secondary"><?= esc(__('cortes.detail.zones', 'Zonas afectadas')) ?></div>
                         <span id="corteDetailLocations"></span>
                     </div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-icon bg-info bg-opacity-10 text-info"><i class="bi bi-card-text"></i></div>
                     <div>
-                        <div class="small text-secondary">Descripción</div>
+                        <div class="small text-secondary"><?= esc(__('cortes.detail.description', 'Descripción')) ?></div>
                         <span id="corteDetailDescription"></span>
                     </div>
                 </div>
                 <div id="corteDetailStatus" class="d-none"></div>
             </div>
             <div class="modal-footer border-0 py-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x me-1"></i>Cerrar</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x me-1"></i><?= esc(__('cortes.detail.close', 'Cerrar')) ?></button>
             </div>
         </div>
     </div>

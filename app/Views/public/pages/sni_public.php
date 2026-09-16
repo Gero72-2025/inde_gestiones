@@ -199,7 +199,7 @@
         <h2 class="h5 mb-3"><?= esc(lang('Portal.sniLegendTitle')) ?></h2>
 
         <div id="sniLegendList" class="d-grid gap-2">
-            <div class="small text-secondary">Cargando simbologias...</div>
+            <div class="small text-secondary"><?= esc(__('sni.legend.loading', 'Cargando simbologias...')) ?></div>
         </div>
 
         <hr>
@@ -217,8 +217,8 @@
         <div id="sniMapCanvas" role="img" aria-label="<?= esc(lang('Portal.sniTitle')) ?>">
             <!-- Controles de zoom nativos de Cesium -->
             <div class="sni-zoom-controls">
-                <button id="sniZoomInBtn" class="sni-zoom-btn" type="button" title="Acercar (+)" aria-label="Zoom In">+</button>
-                <button id="sniZoomOutBtn" class="sni-zoom-btn" type="button" title="Alejar (−)" aria-label="Zoom Out">−</button>
+                <button id="sniZoomInBtn" class="sni-zoom-btn" type="button" title="<?= esc(__('sni.zoom.in', 'Acercar (+)')) ?>" aria-label="<?= esc(__('sni.zoom.in.aria', 'Zoom In')) ?>">+</button>
+                <button id="sniZoomOutBtn" class="sni-zoom-btn" type="button" title="<?= esc(__('sni.zoom.out', 'Alejar (-)')) ?>" aria-label="<?= esc(__('sni.zoom.out.aria', 'Zoom Out')) ?>">&minus;</button>
             </div>
         </div>
     </div>

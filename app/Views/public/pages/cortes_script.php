@@ -38,7 +38,7 @@
             if (!grouped.has(key)) {
                 grouped.set(key, {
                     id,
-                    title: row.motivo || 'Corte de energia',
+                    title: row.motivo || (window.PortalConfig?.i18n?.cortes?.eventDefaultTitle || 'Corte de energia'),
                     start: String(row.fecha_inicio || '').replace(' ', 'T'),
                     end: String(row.fecha_fin || '').replace(' ', 'T'),
                     color: statusColor(row.estado),
@@ -63,10 +63,10 @@
     }
 
     const statusConfig = {
-        activo:     { color: '#198754', label: '🟢 Activo' },
-        programado: { color: '#1a56db', label: '🔵 Programado' },
-        finalizado: { color: '#6c757d', label: '⚫ Finalizado' },
-        cancelado:  { color: '#dc3545', label: '🔴 Cancelado' },
+        activo:     { color: '#198754', label: '🟢 ' + (window.PortalConfig?.i18n?.cortes?.status?.activo || 'Activo') },
+        programado: { color: '#1a56db', label: '🔵 ' + (window.PortalConfig?.i18n?.cortes?.status?.programado || 'Programado') },
+        finalizado: { color: '#6c757d', label: '⚫ ' + (window.PortalConfig?.i18n?.cortes?.status?.finalizado || 'Finalizado') },
+        cancelado:  { color: '#dc3545', label: '🔴 ' + (window.PortalConfig?.i18n?.cortes?.status?.cancelado || 'Cancelado') },
     };
 
     function renderEventDetail(event) {
@@ -85,7 +85,7 @@
         if (locations.length > 0) {
             locEl.innerHTML = locations.map((loc) => `<span class="badge bg-light text-dark border me-1 mb-1">${loc}</span>`).join('');
         } else {
-            locEl.textContent = 'Sin ubicaciones registradas';
+            locEl.textContent = window.PortalConfig?.i18n?.cortes?.detailNoLocations || 'Sin ubicaciones registradas';
         }
 
         // Mostrar descripción
@@ -93,7 +93,7 @@
         if (props.descripcion) {
             descEl.textContent = props.descripcion;
         } else {
-            descEl.textContent = 'Sin descripción';
+            descEl.textContent = window.PortalConfig?.i18n?.cortes?.detailNoDescription || 'Sin descripción';
         }
 
         if (!state.detailModal && window.bootstrap && window.bootstrap.Modal) {
@@ -130,13 +130,35 @@
         state.calendar.render();
     }
 
+    async function loadMunicipios(departamentoId) {
+        const select = document.getElementById('municipioSelect');
+        select.innerHTML = `<option value="">${window.PortalConfig?.i18n?.cortes?.allMunicipalities || 'Todos los municipios'}</option>`;
+
+        if (!departamentoId) {
+            return;
+        }
+
+        const response = await fetch(
+            window.PortalConfig.endpoints.cortesMunicipios + '?departamento_id=' + encodeURIComponent(departamentoId),
+            { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+        );
+        const result = await response.json();
+
+        (result.data || []).forEach((municipio) => {
+            const option = document.createElement('option');
+            option.value = municipio.id;
+            option.textContent = municipio.nombre;
+            select.appendChild(option);
+        });
+    }
+
     async function loadCortes() {
-        const departamento = document.getElementById('departamentoInput').value || '';
-        const municipio = document.getElementById('municipioInput').value || '';
+        const departamentoId = document.getElementById('departamentoSelect').value || '';
+        const municipioId = document.getElementById('municipioSelect').value || '';
         const response = await fetch(
             window.PortalConfig.endpoints.cortes
-                + '?departamento=' + encodeURIComponent(departamento)
-                + '&municipio=' + encodeURIComponent(municipio),
+                + '?departamento_id=' + encodeURIComponent(departamentoId)
+                + '&municipio_id=' + encodeURIComponent(municipioId),
             { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
         );
 
@@ -149,6 +171,15 @@
             state.detailModal.hide();
         }
     }
+
+    document.getElementById('departamentoSelect').addEventListener('change', async function (event) {
+        await loadMunicipios(event.target.value);
+        await loadCortes();
+    });
+
+    document.getElementById('municipioSelect').addEventListener('change', async function () {
+        await loadCortes();
+    });
 
     document.getElementById('cortesForm').addEventListener('submit', async function (event) {
         event.preventDefault();

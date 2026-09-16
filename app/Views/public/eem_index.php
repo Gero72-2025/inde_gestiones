@@ -54,14 +54,14 @@ foreach ($eemListados as $company) {
 <div class="eem-shell p-3 p-lg-4 mb-4 animate__animated animate__fadeIn">
     <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
         <div>
-            <p class="text-uppercase small mb-1 opacity-75">Empresa Eléctrica Municipal</p>
-            <h2 class="h3 mb-1">Selecciona empresa, trámite y continúa</h2>
-            <p class="mb-0 text-secondary">La constancia se genera automáticamente y el código de referencia queda listo para seguimiento.</p>
+            <p class="text-uppercase small mb-1 opacity-75"><?= esc(__('eem.hero.eyebrow', 'Empresa Eléctrica Municipal')) ?></p>
+            <h2 class="h3 mb-1"><?= esc(__('eem.hero.title', 'Selecciona empresa, trámite y continúa')) ?></h2>
+            <p class="mb-0 text-secondary"><?= esc(__('eem.hero.subtitle', 'La constancia se genera automáticamente y el código de referencia queda listo para seguimiento.')) ?></p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <span class="badge text-bg-dark">Selector EEM</span>
-            <span class="badge text-bg-warning text-dark">Constancia PDF</span>
-            <span class="badge text-bg-success">Estado en línea</span>
+            <span class="badge text-bg-dark"><?= esc(__('eem.hero.badge.selector', 'Selector EEM')) ?></span>
+            <span class="badge text-bg-warning text-dark"><?= esc(__('eem.hero.badge.constancia', 'Constancia PDF')) ?></span>
+            <span class="badge text-bg-success"><?= esc(__('eem.hero.badge.estado', 'Estado en línea')) ?></span>
         </div>
     </div>
 </div>
@@ -70,22 +70,22 @@ foreach ($eemListados as $company) {
     <div class="col-12 col-lg-4">
         <div class="card eem-option h-100 animate__animated animate__fadeInLeft">
             <div class="card-body p-4">
-                <h3 class="h5 mb-3">1. Empresa eléctrica</h3>
-                <label class="form-label fw-semibold">Selecciona una empresa:</label>
+                <h3 class="h5 mb-3"><?= esc(__('eem.step1.title', '1. Empresa eléctrica')) ?></h3>
+                <label class="form-label fw-semibold"><?= esc(__('eem.step1.selectLabel', 'Selecciona una empresa:')) ?></label>
                 <select id="eemCompanySelect" class="form-select mb-3">
-                    <option value="">Selecciona...</option>
+                    <option value=""><?= esc(__('eem.step1.selectPlaceholder', 'Selecciona...')) ?></option>
                     <?= $companyOptions ?>
                 </select>
                 <div class="d-grid gap-2">
-                    <button class="btn btn-outline-primary" type="button" onclick="showEemForm('EEM1')">Solicitud de Nueva Conexión Punto de Entrega en alta tensión</button>
-                    <button class="btn btn-outline-primary" type="button" onclick="showEemForm('EEM2')">Gestionar / Seguimiento de Expediente</button>
-                    <button class="btn btn-outline-primary" type="button" onclick="showEemForm('EEM3')">Requerimiento de Capacitación Técnica para técnicos linieros </button>
+                    <button class="btn btn-outline-primary" type="button" onclick="showEemForm('EEM1')"><?= esc(__('eem.step1.button.eem1', 'Solicitud de Nueva Conexión Punto de Entrega en alta tensión')) ?></button>
+                    <button class="btn btn-outline-primary" type="button" onclick="showEemForm('EEM2')"><?= esc(__('eem.step1.button.eem2', 'Gestionar / Seguimiento de Expediente')) ?></button>
+                    <button class="btn btn-outline-primary" type="button" onclick="showEemForm('EEM3')"><?= esc(__('eem.step1.button.eem3', 'Requerimiento de Capacitación Técnica para técnicos linieros ')) ?></button>
                 </div>
                 <hr class="my-4">
-                <h3 class="h6 mb-2">Buscar estado</h3>
+                <h3 class="h6 mb-2"><?= esc(__('eem.search.title', 'Buscar estado')) ?></h3>
                 <div class="input-group">
-                    <input id="eemSearchTerm" type="text" class="form-control" placeholder="Código de referencia o DPI">
-                    <button class="btn btn-dark" type="button" onclick="searchEemStatus()">Buscar</button>
+                    <input id="eemSearchTerm" type="text" class="form-control" placeholder="<?= esc(__('eem.search.placeholder', 'Código de referencia o DPI')) ?>">
+                    <button class="btn btn-dark" type="button" onclick="searchEemStatus()"><?= esc(__('eem.search.button', 'Buscar')) ?></button>
                 </div>
                 <div id="eemSearchResult" class="small text-secondary mt-3"></div>
             </div>
@@ -93,7 +93,7 @@ foreach ($eemListados as $company) {
     </div>
 
     <div class="col-12 col-lg-8">
-        <?php foreach (['EEM1' => 'Nueva Conexión', 'EEM2' => 'Gestionar Expediente', 'EEM3' => 'Capacitación Técnica'] as $code => $label): ?>
+        <?php foreach (['EEM1' => __('eem.form.eem1.title', 'Nueva Conexión'), 'EEM2' => __('eem.form.eem2.title', 'Gestionar Expediente'), 'EEM3' => __('eem.form.eem3.title', 'Capacitación Técnica')] as $code => $label): ?>
             <div id="eemForm<?= esc($code) ?>" class="card eem-option eem-section-hidden mb-4 animate__animated animate__fadeInUp">
                 <div class="card-header bg-transparent border-0 p-4 pb-0 d-flex justify-content-between align-items-center">
                     <div>
@@ -111,12 +111,12 @@ foreach ($eemListados as $company) {
                                 <?= $renderField((array) $field, $code) ?>
                             <?php endforeach; ?>
                             <div class="col-12 d-flex gap-2 justify-content-end pt-2">
-                                <button class="btn btn-outline-secondary" type="button" onclick="hideEemForm('<?= esc($code) ?>')">Cancelar</button>
-                                <button class="btn btn-primary" type="submit"><i class="bi bi-file-earmark-pdf me-1"></i>Generar constancia</button>
+                                <button class="btn btn-outline-secondary" type="button" onclick="hideEemForm('<?= esc($code) ?>')"><?= esc(__('gu.form.cancelButton', 'Cancelar')) ?></button>
+                                <button class="btn btn-primary" type="submit"><i class="bi bi-file-earmark-pdf me-1"></i><?= esc(__('eem.form.submitButton', 'Generar constancia')) ?></button>
                             </div>
                         </form>
                     <?php else: ?>
-                        <div class="alert alert-warning mb-0">No hay formularios EEM configurados todavía.</div>
+                        <div class="alert alert-warning mb-0"><?= esc(__('eem.form.unavailable', 'No hay formularios EEM configurados todavía.')) ?></div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -161,16 +161,16 @@ async function searchEemStatus() {
     const term = document.getElementById('eemSearchTerm').value.trim();
     const box = document.getElementById('eemSearchResult');
     if (!term) {
-        box.innerHTML = '<span class="text-danger">Ingresa un código o DPI.</span>';
+        box.innerHTML = '<span class="text-danger">' + <?= json_encode(__('eem.search.errorEmpty', 'Ingresa un código o DPI.')) ?> + '</span>';
         return;
     }
 
-    box.innerHTML = 'Consultando...';
+    box.innerHTML = <?= json_encode(__('eem.search.loading', 'Consultando...')) ?>;
     const response = await fetch(<?= json_encode(site_url('api/ecoe/eem/estado')) ?> + '?term=' + encodeURIComponent(term), { credentials: 'same-origin' });
     const data = await response.json();
 
     if (!data.ok || !Array.isArray(data.records) || data.records.length === 0) {
-        box.innerHTML = '<span class="text-danger">No se encontró un trámite con ese dato.</span>';
+        box.innerHTML = '<span class="text-danger">' + <?= json_encode(__('eem.search.notFound', 'No se encontró un trámite con ese dato.')) ?> + '</span>';
         return;
     }
 
@@ -178,7 +178,7 @@ async function searchEemStatus() {
         return '<div class="border rounded-3 p-3 mb-2 bg-light">'
             + '<div class="fw-semibold">' + escapeHtml(record.codigo_referencia || '-') + '</div>'
             + '<div class="small text-secondary">' + escapeHtml(record.formulario_nombre || '-') + '</div>'
-            + '<div class="small">Estado: ' + escapeHtml(record.estado_tramite || 'recibido') + '</div>'
+            + '<div class="small">' + <?= json_encode(__('eem.search.resultStatusLabel', 'Estado:')) ?> + ' ' + escapeHtml(record.estado_tramite || 'recibido') + '</div>'
             + '<div class="small">DPI: ' + escapeHtml(record.dpi || '-') + '</div>'
             + '</div>';
     }).join('');

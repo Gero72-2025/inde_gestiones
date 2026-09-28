@@ -6,6 +6,12 @@
     <meta name="description" content="<?= esc(lang('Portal.metaDescription')) ?>">
     <meta name="robots" content="index,follow">
     <title><?= esc($pageTitle ?? lang('Portal.metaTitle')) ?></title>
+    <!-- Favicon clásico (ICO o PNG) -->
+    <link rel="icon" type="image/x-icon" href="<?= base_url('assets/img/cropped-favicon-32x32.png') ?>">
+
+    <!-- O si prefieres usar un PNG moderno -->
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('assets/img/cropped-favicon-32x32.png') ?>">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap" rel="stylesheet">
@@ -586,7 +592,7 @@
         }
 
         .top-access-bar {
-            background: #06263a;
+            background: #181630;
             color: #eaf4fa;
             font-size: .82rem;
             padding: .4rem 0;
@@ -1012,15 +1018,19 @@
         ], JSON_UNESCAPED_UNICODE) ?>
     };
 
-    document.getElementById('localeSwitcher').addEventListener('change', function () {
-        window.location.href = window.PortalConfig.localeEndpoint + '/' + encodeURIComponent(this.value);
-    });
+    const localeSwitcher = document.getElementById('localeSwitcher');
+    if (localeSwitcher) {
+        localeSwitcher.addEventListener('change', function () {
+            window.location.href = window.PortalConfig.localeEndpoint + '/' + encodeURIComponent(this.value);
+        });
+    }
 
     const routeSearchForm = document.getElementById('routeSearchForm');
     if (routeSearchForm) {
         routeSearchForm.addEventListener('submit', function (event) {
             event.preventDefault();
-            const q = (document.getElementById('routeSearchInput').value || '').toLowerCase();
+            const routeSearchInput = document.getElementById('routeSearchInput');
+            const q = (routeSearchInput?.value || '').toLowerCase();
             let target = 'consulta/beneficiados';
             if (q.includes('comunidad') || q.includes('gero')) target = 'consulta/comunidades';
             if (q.includes('corte') || q.includes('energia')) target = 'consulta/cortes';
@@ -1029,13 +1039,15 @@
     }
 
     const whatsappFab = document.getElementById('whatsappFab');
-    whatsappFab.addEventListener('click', function () {
-        const map = window.PortalConfig.whatsappBySection || {};
-        const page = window.PortalConfig.page || 'home';
-        const number = map[page] || map.hero || '50255550001';
-        const message = encodeURIComponent(window.PortalConfig.whatsappMessage || 'Hola, necesito apoyo en el portal publico INDE.');
-        window.open('https://wa.me/' + number + '?text=' + message, '_blank', 'noopener');
-    });
+    if (whatsappFab) {
+        whatsappFab.addEventListener('click', function () {
+            const map = window.PortalConfig.whatsappBySection || {};
+            const page = window.PortalConfig.page || 'home';
+            const number = map[page] || map.hero || '50255550001';
+            const message = encodeURIComponent(window.PortalConfig.whatsappMessage || 'Hola, necesito apoyo en el portal publico INDE.');
+            window.open('https://wa.me/' + number + '?text=' + message, '_blank', 'noopener');
+        });
+    }
 
     // Eliminar toolbarContainer si es inyectado por el Debug Toolbar
     function removeDebugToolbarContainer() {

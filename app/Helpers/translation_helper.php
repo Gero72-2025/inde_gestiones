@@ -120,16 +120,15 @@ if (! function_exists('translation_load_locale_map')) {
      */
     function translation_load_locale_map(string $locale): array
     {
-        $cache = cache();
         $cacheKey = translation_cache_key($locale);
-        $map = $cache->get($cacheKey);
+        $map = translation_cache_get_safe($cacheKey);
 
         if (is_array($map)) {
             return $map;
         }
 
         $map = (new TranslationModel())->getAllForLocale($locale);
-        $cache->save($cacheKey, $map, 3600);
+        translation_cache_save_safe($cacheKey, $map, 3600);
 
         return $map;
     }
@@ -144,16 +143,15 @@ if (! function_exists('translation_load_normalized_map')) {
      */
     function translation_load_normalized_map(string $locale): array
     {
-        $cache = cache();
         $cacheKey = translation_normalized_cache_key($locale);
-        $map = $cache->get($cacheKey);
+        $map = translation_cache_get_safe($cacheKey);
 
         if (is_array($map)) {
             return $map;
         }
 
         $map = (new TranslationModel())->getApprovedNormalizedMapForLocale($locale);
-        $cache->save($cacheKey, $map, 3600);
+        translation_cache_save_safe($cacheKey, $map, 3600);
 
         return $map;
     }
@@ -215,12 +213,55 @@ if (! function_exists('translation_clear_cache')) {
      */
     function translation_clear_cache(?string $locale = null): void
     {
-        $cache = cache();
         $locales = $locale !== null ? [$locale] : config(AppConfig::class)->supportedLocales;
 
         foreach ($locales as $loc) {
-            $cache->delete(translation_cache_key($loc));
-            $cache->delete(translation_normalized_cache_key($loc));
+            translation_cache_delete_safe(translation_cache_key($loc));
+            translation_cache_delete_safe(translation_normalized_cache_key($loc));
+        }
+    }
+}
+
+if (! function_exists('translation_cache_get_safe')) {
+    function translation_cache_get_safe(string $key): mixed
+    {
+        try {
+            return cache()->get($key);
+        } catch (Throwable $exception) {
+            log_message('warning', 'Traducciones: no se pudo leer cache {key}; se continuara sin cache. {message}', [
+                'key' => $key,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+}
+
+if (! function_exists('translation_cache_save_safe')) {
+    function translation_cache_save_safe(string $key, mixed $value, int $ttl): void
+    {
+        try {
+            cache()->save($key, $value, $ttl);
+        } catch (Throwable $exception) {
+            log_message('warning', 'Traducciones: no se pudo guardar cache {key}; se continuara sin cache. {message}', [
+                'key' => $key,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+}
+
+if (! function_exists('translation_cache_delete_safe')) {
+    function translation_cache_delete_safe(string $key): void
+    {
+        try {
+            cache()->delete($key);
+        } catch (Throwable $exception) {
+            log_message('warning', 'Traducciones: no se pudo eliminar cache {key}; se continuara sin cache. {message}', [
+                'key' => $key,
+                'message' => $exception->getMessage(),
+            ]);
         }
     }
 }

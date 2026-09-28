@@ -17,6 +17,15 @@ $routes->group('admin', [
     $routes->post('idiomas/save', 'TranslationsController::save', ['filter' => 'adminPermission:admin.idiomas.view']);
     $routes->post('idiomas/delete', 'TranslationsController::delete', ['filter' => 'adminPermission:admin.idiomas.view']);
     $routes->post('idiomas/clear-cache', 'TranslationsController::clearCache', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->get('idiomas/languages', 'TranslationsController::languages', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->post('idiomas/languages/save', 'TranslationsController::saveLanguage', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->post('idiomas/languages/delete', 'TranslationsController::deleteLanguage', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->get('idiomas/export', 'TranslationsController::export', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->post('idiomas/import', 'TranslationsController::import', ['filter' => 'adminPermission:admin.idiomas.view']);
+    $routes->get('consejos', 'ConsejosController::index', ['filter' => 'adminPermission:admin.consejos.view']);
+    $routes->get('consejos/list', 'ConsejosController::list', ['filter' => 'adminPermission:admin.consejos.view']);
+    $routes->post('consejos/save', 'ConsejosController::save', ['filter' => 'adminPermission:admin.consejos.view']);
+    $routes->post('consejos/delete', 'ConsejosController::delete', ['filter' => 'adminPermission:admin.consejos.view']);
 
     $routes->get('api/gerencias', 'GerenciasController::list', ['filter' => 'adminPermission:admin.gerencias.view']);
     $routes->post('api/gerencias', 'GerenciasController::store', ['filter' => 'adminPermission:admin.gerencias.view']);

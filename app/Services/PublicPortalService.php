@@ -48,6 +48,21 @@ class PublicPortalService
         return $result;
     }
 
+    public function getConsejosAhorro(): array
+    {
+        if (! $this->db->tableExists('ecoe_ts_consejos')) {
+            return [];
+        }
+
+        return $this->db->table('ecoe_ts_consejos')
+            ->select('id, clave, texto AS texto_base, imagen, orden')
+            ->where('activo', 1)
+            ->orderBy('orden', 'ASC')
+            ->orderBy('id', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
     public function findBeneficioByDpi(string $dpi, string $locale): ?array
     {
         if (! $this->db->tableExists('public_beneficiarios')) {
@@ -204,11 +219,11 @@ class PublicPortalService
         }
 
         $rows = $this->db->table('etcee_sni_geometrias g')
-            ->select('g.id, g.nombre, g.coordenadas, g.propiedades, g.fecha_registro, c.nombre AS capa_nombre, c.slug AS capa_slug, c.color_default, c.icono_path')
+            ->select('g.id, g.nombre, g.coordenadas, g.propiedades, g.fecha_registro, g.linea_sistema_id, c.nombre AS capa_nombre, c.slug AS capa_slug, c.color_default, c.icono_path, ls.nombre AS linea_sistema_nombre, ls.slug AS linea_sistema_slug')
             ->join('etcee_sni_capas c', 'c.id = g.categoria_id', 'inner')
+            ->join('etcee_sni_lineas_sistema ls', 'ls.id = g.linea_sistema_id', 'left')
             ->where('c.estado', 'activo')
             ->orderBy('g.fecha_registro', 'DESC')
-            ->limit(5000)
             ->get()
             ->getResultArray();
 
@@ -228,6 +243,9 @@ class PublicPortalService
             $properties['nombre'] = (string) ($row['nombre'] ?? '');
             $properties['capa_nombre'] = (string) ($row['capa_nombre'] ?? '');
             $properties['capa_slug'] = (string) ($row['capa_slug'] ?? '');
+            $properties['linea_sistema_id'] = (int) ($row['linea_sistema_id'] ?? 0);
+            $properties['linea_sistema_nombre'] = (string) ($row['linea_sistema_nombre'] ?? '');
+            $properties['linea_sistema_slug'] = (string) ($row['linea_sistema_slug'] ?? '');
             $properties['color_default'] = (string) ($row['color_default'] ?? '#1f6feb');
             $properties['icono_path'] = (string) ($row['icono_path'] ?? '');
             $properties['icono_url'] = trim((string) ($row['icono_path'] ?? '')) !== ''
@@ -266,8 +284,6 @@ class PublicPortalService
 
         if ($normalizedSlugs !== []) {
             $builder->whereIn('slug', $normalizedSlugs);
-        } else {
-            return [];
         }
 
         $rows = $builder

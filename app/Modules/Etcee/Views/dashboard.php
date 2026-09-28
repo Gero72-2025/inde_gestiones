@@ -37,12 +37,12 @@
                         <i class="bi bi-speedometer2 fs-5 text-info"></i>
                     </div>
                     <div>
-                        <h3 class="h6 mb-1">Modulos Disponibles</h3>
-                        <p class="text-secondary small mb-2">Accede a submodulos y funcionalidades avanzadas.</p>
+                        <h3 class="h6 mb-1">Mantenimientos Programados</h3>
+                        <p class="text-secondary small mb-2">Accede a los mantenimientos programados.</p>
                     </div>
                 </div>
-                <a class="btn btn-sm btn-outline-primary" href="<?= site_url('gerencias/' . ($auth['gerencia_slug'] ?? '')) ?>/modulo/base">
-                    <i class="bi bi-grid-3x2 me-1"></i>Abrir modulo base
+                <a class="btn btn-sm btn-outline-primary" href="<?= site_url('admin/etcee/cortes') ?>">
+                    <i class="bi bi-grid-3x2 me-1"></i>Abrir modulo de mantenimientos
                 </a>
             </div>
         </div>

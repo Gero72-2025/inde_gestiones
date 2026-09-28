@@ -53,7 +53,7 @@
             </div>
         </form>
 
-        <div id="cortesPills" class="d-flex flex-wrap gap-2 mb-3" aria-label="Visual de cortes por ubicacion"></div>
+        <div id="cortesPills" class="d-flex flex-wrap gap-2 mb-3" aria-label="Visual de cortes por ubicación"></div>
 
         <div class="table-shell">
             <table class="table table-hover align-middle" id="cortesTable">
@@ -93,7 +93,7 @@
     });
 
     document.getElementById('whatsappFab').addEventListener('click', function () {
-        const msg = encodeURIComponent('Hola, necesito apoyo en cortes de energia.');
+        const msg = encodeURIComponent('Hola, necesito apoyo en mantenimientos programados.');
         window.open('https://wa.me/' + cfg.whatsappNumber + '?text=' + msg, '_blank', 'noopener');
     });
 

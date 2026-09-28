@@ -314,6 +314,24 @@
         if (button) button.textContent = '+';
     }
 
+    function setupLegendToggle() {
+        const legend = document.getElementById('sniFloatingLegend');
+        const toggleBtn = document.getElementById('sniLegendToggleBtn');
+        const toggleIcon = toggleBtn ? toggleBtn.querySelector('.sni-legend-toggle-icon') : null;
+
+        if (!legend || !toggleBtn) return;
+
+        toggleBtn.addEventListener('click', () => {
+            const isMinimized = legend.classList.toggle('is-minimized');
+            toggleBtn.setAttribute('aria-expanded', String(!isMinimized));
+            toggleBtn.title = isMinimized ? 'Expandir leyenda' : 'Minimizar leyenda';
+
+            if (toggleIcon) {
+                toggleIcon.textContent = isMinimized ? '+' : '−';
+            }
+        });
+    }
+
     function renderLegend(symbols, features) {
         const list = document.getElementById('sniLegendList');
 
@@ -441,8 +459,8 @@
             position: Cesium.Cartesian3.fromDegrees(Number(c[0]), Number(c[1]), Number(c[2] || 0)),
             billboard: {
                 image: pointIcon !== '' ? pointIcon : fallbackIcon,
-                width: 24,
-                height: 24,
+                width: 15,
+                height: 15,
                 verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
             },
         });
@@ -735,6 +753,7 @@
         
         try {
             setupViewer();
+            setupLegendToggle();
             setupButtons();
             loadData();
             log('Init complete');

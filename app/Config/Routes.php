@@ -32,6 +32,8 @@ $routes->group('', ['filter' => 'readOnly'], static function ($routes) {
 
 	// ECOE Tarifa Social – endpoints AJAX públicos
 	$routes->post('api/ecoe/ts/consultar-nis', '\App\Modules\Ecoe\Controllers\TarifaSocialController::apiConsultarNis');
+	$routes->post('api/ecoe/ts/reporte-disponibilidad', '\App\Modules\Ecoe\Controllers\TarifaSocialController::apiDisponibilidadReporte');
+	$routes->post('api/ecoe/ts/reporte-periodo', '\App\Modules\Ecoe\Controllers\TarifaSocialController::apiReportePeriodo');
 	$routes->post('api/ecoe/ts/rastrear', '\App\Modules\Ecoe\Controllers\TarifaSocialController::apiRastrear');
 	$routes->post('api/ecoe/ts/crear-ticket', '\App\Modules\Ecoe\Controllers\TarifaSocialController::apiCrearTicket');
 	$routes->get('api/ecoe/ts/solicitud-pdf', '\App\Modules\Ecoe\Controllers\TarifaSocialController::descargarSolicitudPdf');

@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\LanguageModel;
 use App\Services\PublicPortalService;
 use App\Modules\Ecoe\Models\DistribuidoraModel;
 use App\Modules\Ecoe\Models\EemListadoModel;
@@ -66,6 +67,7 @@ class PublicPortalController extends BaseController
             'innerView'      => 'public/pages/tarifa_social',
             'innerData'      => array_merge($data, [
                 'distribuidoras' => $distribuidoraM->listActivas(),
+                'consejosAhorro' => $this->portalService->getConsejosAhorro(),
             ]),
             'scriptsView'    => 'public/pages/tarifa_social_script',
         ]));
@@ -185,10 +187,9 @@ class PublicPortalController extends BaseController
 
     public function changeLocale(string $locale)
     {
-        $supported = config('App')->supportedLocales;
         $locale = strtolower(trim($locale));
 
-        if (! in_array($locale, $supported, true)) {
+        if (! in_array($locale, $this->availableLocaleCodes(), true)) {
             $locale = config('App')->defaultLocale;
         }
 
@@ -202,9 +203,8 @@ class PublicPortalController extends BaseController
      */
     public function setLanguage(): ResponseInterface
     {
-        $supported = config('App')->supportedLocales;
         $requested = strtolower(trim((string) $this->request->getPost('lang')));
-        $locale = in_array($requested, $supported, true) ? $requested : config('App')->defaultLocale;
+        $locale = in_array($requested, $this->availableLocaleCodes(), true) ? $requested : config('App')->defaultLocale;
 
         $this->session->set('site_locale', $locale);
 
@@ -561,20 +561,12 @@ class PublicPortalController extends BaseController
         try {
             $featureCollection = $this->portalService->listSniGeometrias($locale);
             $features = $featureCollection['features'] ?? [];
-            $usedSlugs = [];
-
-            foreach ($features as $feature) {
-                $slug = trim((string) ($feature['properties']['capa_slug'] ?? ''));
-                if ($slug !== '') {
-                    $usedSlugs[$slug] = true;
-                }
-            }
 
             return $this->encryptedJsonResponse([
                 'ok' => true,
                 'data' => [
                     'features' => $features,
-                    'simbologias' => $this->portalService->listSniSimbologias(array_keys($usedSlugs)),
+                    'simbologias' => $this->portalService->listSniSimbologias(),
                 ],
             ]);
         } catch (\Throwable $exception) {
@@ -587,10 +579,9 @@ class PublicPortalController extends BaseController
 
     private function resolveLocale(): string
     {
-        $supported = config('App')->supportedLocales;
         $candidate = strtolower((string) ($this->request->getGet('lang') ?? $this->session->get('site_locale') ?? config('App')->defaultLocale));
 
-        if (! in_array($candidate, $supported, true)) {
+        if (! in_array($candidate, $this->availableLocaleCodes(), true)) {
             $candidate = config('App')->defaultLocale;
         }
 
@@ -602,10 +593,25 @@ class PublicPortalController extends BaseController
 
     private function buildLocaleOptions(): array
     {
-        $supported = config('App')->supportedLocales;
         $options = [];
 
-        foreach ($supported as $locale) {
+        $languages = (new LanguageModel())
+            ->where('is_active', 1)
+            ->where('is_visible', 1)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+        foreach ($languages as $language) {
+            $options[] = [
+                'code' => (string) $language['code'],
+                'label' => (string) $language['name'],
+            ];
+        }
+
+        if ($options !== []) {
+            return $options;
+        }
+
+        foreach (config('App')->supportedLocales as $locale) {
             $options[] = [
                 'code' => $locale,
                 'label' => self::LOCALE_LABELS[$locale] ?? strtoupper($locale),
@@ -613,6 +619,12 @@ class PublicPortalController extends BaseController
         }
 
         return $options;
+    }
+
+    /** @return list<string> */
+    private function availableLocaleCodes(): array
+    {
+        return array_values(array_map('strval', array_column($this->buildLocaleOptions(), 'code')));
     }
 
     private function issueCaptchaChallenge(): array

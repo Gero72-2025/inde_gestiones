@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\LanguageModel;
 use App\Modules\Ecoe\Models\DistribuidoraModel;
 use App\Services\PublicPortalService;
 
@@ -72,10 +73,9 @@ class PublicController extends BaseController
 
     private function resolveLocale(): string
     {
-        $supported = config('App')->supportedLocales;
         $candidate = strtolower((string) ($this->request->getGet('lang') ?? $this->session->get('site_locale') ?? config('App')->defaultLocale));
 
-        if (! in_array($candidate, $supported, true)) {
+        if (! in_array($candidate, $this->availableLocaleCodes(), true)) {
             $candidate = config('App')->defaultLocale;
         }
 
@@ -87,10 +87,25 @@ class PublicController extends BaseController
 
     private function buildLocaleOptions(): array
     {
-        $supported = config('App')->supportedLocales;
         $options = [];
 
-        foreach ($supported as $locale) {
+        $languages = (new LanguageModel())
+            ->where('is_active', 1)
+            ->where('is_visible', 1)
+            ->orderBy('id', 'ASC')
+            ->findAll();
+        foreach ($languages as $language) {
+            $options[] = [
+                'code' => (string) $language['code'],
+                'label' => (string) $language['name'],
+            ];
+        }
+
+        if ($options !== []) {
+            return $options;
+        }
+
+        foreach (config('App')->supportedLocales as $locale) {
             $options[] = [
                 'code' => $locale,
                 'label' => self::LOCALE_LABELS[$locale] ?? strtoupper($locale),
@@ -98,6 +113,12 @@ class PublicController extends BaseController
         }
 
         return $options;
+    }
+
+    /** @return list<string> */
+    private function availableLocaleCodes(): array
+    {
+        return array_values(array_map('strval', array_column($this->buildLocaleOptions(), 'code')));
     }
 
     /**

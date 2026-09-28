@@ -1,5 +1,6 @@
 <?php
-$supportedLocales = (array) ($supportedLocales ?? []);
+$languages = (array) ($languages ?? []);
+$activeLanguages = array_values(array_filter($languages, static fn (array $language): bool => (int) ($language['is_active'] ?? 0) === 1 && (int) ($language['is_visible'] ?? 0) === 1));
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="h4 mb-0"><i class="bi bi-translate me-2"></i>Idiomas</h2>
@@ -12,12 +13,18 @@ $supportedLocales = (array) ($supportedLocales ?? []);
     <button class="btn btn-outline-danger" id="btnClearTranslationsCache">
         <i class="bi bi-arrow-repeat me-1"></i> Limpiar cache de traducciones
     </button>
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#languagesModal" id="btnManageLanguages">
+        <i class="bi bi-list-check me-1"></i> Catalogo de lenguas
+    </button>
+    <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importTranslationsModal">
+        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Importar y Exportar
+    </button>
 
     <div class="ms-auto d-flex flex-wrap gap-2">
         <select class="form-select form-select-sm" id="filterLang" style="min-width: 9rem;">
             <option value="">Todos los idiomas</option>
-            <?php foreach ($supportedLocales as $locale): ?>
-                <option value="<?= esc($locale) ?>"><?= esc(strtoupper($locale)) ?></option>
+            <?php foreach ($activeLanguages as $language): ?>
+                <option value="<?= esc($language['code']) ?>"><?= esc($language['name']) ?></option>
             <?php endforeach; ?>
         </select>
         <select class="form-select form-select-sm" id="filterAutodiscovered" style="min-width: 11rem;">
@@ -42,8 +49,8 @@ $supportedLocales = (array) ($supportedLocales ?? []);
                     <div class="col-12 col-md-4">
                         <label class="form-label fw-semibold">Idioma <span class="text-danger">*</span></label>
                         <select class="form-select" name="lang_code" required>
-                            <?php foreach ($supportedLocales as $locale): ?>
-                                <option value="<?= esc($locale) ?>"><?= esc(strtoupper($locale)) ?></option>
+                            <?php foreach ($activeLanguages as $language): ?>
+                                <option value="<?= esc($language['code']) ?>"><?= esc($language['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -79,8 +86,8 @@ $supportedLocales = (array) ($supportedLocales ?? []);
                     <div class="col-12 col-md-4">
                         <label class="form-label fw-semibold">Idioma <span class="text-danger">*</span></label>
                         <select class="form-select" id="editLangCode" name="lang_code" required>
-                            <?php foreach ($supportedLocales as $locale): ?>
-                                <option value="<?= esc($locale) ?>"><?= esc(strtoupper($locale)) ?></option>
+                            <?php foreach ($activeLanguages as $language): ?>
+                                <option value="<?= esc($language['code']) ?>"><?= esc($language['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -102,6 +109,39 @@ $supportedLocales = (array) ($supportedLocales ?? []);
     </div>
 </div>
 
+<div class="modal fade" id="languagesModal" tabindex="-1" aria-labelledby="languagesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="languagesModalLabel"><i class="bi bi-list-check me-2"></i>Catalogo de lenguas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="languageForm" class="row g-2 align-items-end mb-3" novalidate>
+                    <input type="hidden" name="id" id="languageId">
+                    <div class="col-md-3"><label class="form-label">Codigo</label><input class="form-control" name="code" id="languageCode" maxlength="10" required></div>
+                    <div class="col-md-5"><label class="form-label">Nombre</label><input class="form-control" name="name" id="languageName" maxlength="100" required></div>
+                    <div class="col-md-2"><label class="form-label">Estado</label><select class="form-select" name="is_active" id="languageActive"><option value="1">Activa</option><option value="0">Inactiva</option></select></div>
+                    <div class="col-md-2"><label class="form-label">Visibilidad</label><select class="form-select" name="is_visible" id="languageVisible"><option value="1">Visible</option><option value="0">Oculta</option></select></div>
+                    <div class="col-md-12 d-flex justify-content-end gap-1"><button class="btn btn-primary" type="submit">Guardar</button><button class="btn btn-outline-secondary" type="button" id="btnResetLanguage">Limpiar</button></div>
+                </form>
+                <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Codigo</th><th>Nombre</th><th>Estado</th><th>Visibilidad</th><th class="text-end">Acciones</th></tr></thead><tbody id="languagesTableBody"></tbody></table></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="importTranslationsModal" tabindex="-1" aria-labelledby="importTranslationsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow">
+        <div class="modal-header"><h5 class="modal-title" id="importTranslationsModalLabel"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Importar y Exportar traducciones</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">
+            <p class="text-secondary small">La importacion acepta unicamente una plantilla XLSX generada desde este modulo y valida todos sus encabezados antes de modificar datos.</p>
+            <div class="d-flex gap-2 mb-3"><a class="btn btn-outline-success" href="<?= site_url('admin/idiomas/export') ?>"><i class="bi bi-download me-1"></i>Exportar XLSX</a></div>
+            <form id="importTranslationsForm"><label class="form-label fw-semibold" for="translationFile">Plantilla XLSX</label><input class="form-control" type="file" name="translation_file" id="translationFile" accept=".xlsx,.xls" required><button class="btn btn-primary mt-3" type="submit"><i class="bi bi-upload me-1"></i>Importar</button></form>
+        </div>
+    </div></div>
+</div>
+
 <div class="table-responsive">
     <table class="table table-striped align-middle" id="traduccionesTable">
         <thead>
@@ -117,12 +157,13 @@ $supportedLocales = (array) ($supportedLocales ?? []);
         <tbody></tbody>
     </table>
 </div>
-<div id="traduccionesPager" class="d-flex justify-content-between align-items-center mt-2 mb-1"></div>
+<div id="traduccionesPager" class="d-flex flex-column align-items-center gap-2 mt-3 mb-1"></div>
 
 <script>
 let traduccionesData = [];
 let traduccionesPage = 1;
 const traduccionesPerPage = 15;
+let languagesData = <?= json_encode($languages, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 
 function escAttr(str) {
     return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -170,16 +211,65 @@ function renderTraduccionesPager() {
     const pages = Math.ceil(total / traduccionesPerPage);
     const pager = document.getElementById('traduccionesPager');
     if (pages <= 1) { pager.innerHTML = ''; return; }
+    const visible = new Set([1, pages, traduccionesPage - 1, traduccionesPage, traduccionesPage + 1]);
+    const ordered = [...visible].filter(page => page >= 1 && page <= pages).sort((a, b) => a - b);
     let btns = '';
-    for (let i = 1; i <= pages; i++) {
-        btns += `<button class="btn btn-sm ${i === traduccionesPage ? 'btn-primary' : 'btn-outline-secondary'} me-1" onclick="goTraduccionesPage(${i})">${i}</button>`;
-    }
+    let previous = 0;
+    ordered.forEach(page => {
+        if (previous && page - previous > 1) btns += '<span class="px-2 text-muted">&hellip;</span>';
+        btns += `<button class="btn btn-sm ${page === traduccionesPage ? 'btn-primary' : 'btn-outline-secondary'}" onclick="goTraduccionesPage(${page})">${page}</button>`;
+        previous = page;
+    });
     const from = Math.min((traduccionesPage - 1) * traduccionesPerPage + 1, total);
     const to   = Math.min(traduccionesPage * traduccionesPerPage, total);
-    pager.innerHTML = `<small class="text-muted">Mostrando ${from}&ndash;${to} de ${total}</small><div>${btns}</div>`;
+    pager.innerHTML = `<small class="text-muted">Mostrando ${from}&ndash;${to} de ${total}</small><div class="d-flex align-items-center gap-1">${btns}</div>`;
 }
 
 function goTraduccionesPage(p) { traduccionesPage = p; renderTraducciones(); }
+
+function renderLanguages() {
+    const body = document.getElementById('languagesTableBody');
+    body.innerHTML = languagesData.map(language => `<tr>
+        <td><code>${escAttr(language.code)}</code></td>
+        <td>${escAttr(language.name)}</td>
+        <td><span class="badge ${Number(language.is_active) === 1 ? 'bg-success' : 'bg-secondary'}">${Number(language.is_active) === 1 ? 'Activa' : 'Inactiva'}</span></td>
+        <td><span class="badge ${Number(language.is_visible) === 1 ? 'bg-primary' : 'bg-warning text-dark'}">${Number(language.is_visible) === 1 ? 'Visible' : 'Oculta'}</span></td>
+        <td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="editLanguage(${Number(language.id)})">Editar</button><button class="btn btn-sm btn-outline-danger" onclick="deleteLanguage(${Number(language.id)})">Eliminar</button></td>
+    </tr>`).join('');
+}
+
+function editLanguage(id) {
+    const language = languagesData.find(item => Number(item.id) === id);
+    if (!language) return;
+    document.getElementById('languageId').value = language.id;
+    document.getElementById('languageCode').value = language.code;
+    document.getElementById('languageName').value = language.name;
+    document.getElementById('languageActive').value = language.is_active;
+    document.getElementById('languageVisible').value = language.is_visible;
+}
+
+function resetLanguageForm() {
+    document.getElementById('languageForm').reset();
+    document.getElementById('languageId').value = '';
+}
+
+async function loadLanguages() {
+    const result = await fetchEncrypted('<?= site_url('admin/idiomas/languages') ?>');
+    languagesData = result?.data?.languages || languagesData;
+    renderLanguages();
+}
+
+async function deleteLanguage(id) {
+    const language = languagesData.find(item => Number(item.id) === id);
+    if (!language) return;
+    confirmAction(`¿Eliminar la lengua "${language.name}"?`, async () => {
+        const body = new FormData();
+        body.append('id', id);
+        const result = await fetchEncrypted('<?= site_url('admin/idiomas/languages/delete') ?>', { method: 'POST', body, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        notify(result?.data?.message || 'Operacion completada.', result?.status >= 400 ? 'danger' : 'success');
+        await loadLanguages();
+    }, { title: 'Eliminar lengua', danger: true });
+}
 
 async function loadTraducciones() {
     const params = new URLSearchParams();
@@ -261,6 +351,38 @@ document.getElementById('filterSearch').addEventListener('keydown', (e) => { if 
 document.getElementById('filterLang').addEventListener('change', loadTraducciones);
 document.getElementById('filterAutodiscovered').addEventListener('change', loadTraducciones);
 
+document.getElementById('btnManageLanguages').addEventListener('click', loadLanguages);
+document.getElementById('btnResetLanguage').addEventListener('click', resetLanguageForm);
+document.getElementById('languageForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = await fetchEncrypted('<?= site_url('admin/idiomas/languages/save') ?>', {
+        method: 'POST', body: new FormData(e.target), headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    if (result?.status >= 400 || (result?.data?.message || '').toLowerCase().includes('ya existe')) {
+        notify(result?.data?.message || 'No se pudo guardar la lengua.', 'danger', 0);
+        return;
+    }
+    notify(result?.data?.message || 'Lengua guardada.', 'success');
+    resetLanguageForm();
+    await loadLanguages();
+    window.location.reload();
+});
+
+document.getElementById('importTranslationsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = await fetchEncrypted('<?= site_url('admin/idiomas/import') ?>', {
+        method: 'POST', body: new FormData(e.target), headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    if (result?.status >= 400 || !result?.data?.message?.toLowerCase().includes('completada')) {
+        notify(result?.data?.message || 'No se pudo importar la plantilla.', 'danger', 0);
+        return;
+    }
+    notify(result.data.message, 'success');
+    bootstrap.Modal.getInstance(document.getElementById('importTranslationsModal'))?.hide();
+    e.target.reset();
+    await loadTraducciones();
+});
+
 document.getElementById('btnClearTranslationsCache').addEventListener('click', async () => {
     const result = await fetchEncrypted('<?= site_url('admin/idiomas/clear-cache') ?>', {
         method: 'POST',
@@ -270,4 +392,5 @@ document.getElementById('btnClearTranslationsCache').addEventListener('click', a
 });
 
 loadTraducciones();
+renderLanguages();
 </script>

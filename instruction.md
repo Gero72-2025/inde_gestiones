@@ -7,6 +7,27 @@
 - Definir en .env una llave fuerte para `security.ajaxCipherKey` y el emisor de TOTP en `security.totpIssuer`.
 - Instalar dependencias Composer para renderizar QR local y usar la libreria TOTP recomendada.
 
+### Conexion SQL Server de ECOE
+
+El endpoint publico `api/ecoe/ts/consultar-nis` usa la conexion `ecoe` y selecciona
+la base externa mediante un mapa interno. Configura en `.env` las tres bases de
+datos SQL Server (los nombres pueden contener espacios):
+
+```dotenv
+database.ecoe.hostname = 127.0.0.1
+database.ecoe.username = usuario_sqlserver
+database.ecoe.password = secreto
+database.ecoe.database = FAC DEOCSA
+database.ecoe.DBDriver = SQLSRV
+database.ecoe.deocsa = FAC DEOCSA
+database.ecoe.deorsa = FAC DEORSA
+database.ecoe.eegsa = FAC EEGSA
+```
+
+Las tablas se esperan con el formato `[dbo].[DC YYYY MM]`. El lector valida su
+existencia y sus columnas en `sys.tables/sys.columns` antes de ejecutar un
+`UNION ALL`; el NIS siempre se envía como parámetro enlazado.
+
 ## SQL inicial
 
 1. Importa el archivo `app/Database/inde_core_schema.sql` desde phpMyAdmin o el asistente SQL de cPanel.
@@ -352,6 +373,7 @@ Cada módulo funcional de una gerencia debe seguir este patrón para consistenci
     - `ecoe_ts_estados`
     - `ecoe_ts_tickets`
     - `ecoe_ts_adjuntos`
+    - `ecoe_ts_consejos`
 
 ### Migracion de Base de Datos
 
@@ -424,6 +446,14 @@ $routes->post('api/ecoe/ts/crear-ticket',  'App\Modules\Ecoe\Controllers\TarifaS
 ### Permisos a Sincronizar
 
 Despues de importar el SQL y desplegar el codigo, ejecutar `Sincronizar Modulos` desde `/admin/roles` para registrar el permiso `gerencia.ecoe.tarifa_social.access` y asignarlo al rol que corresponda.
+
+### Consejos de Ahorro
+
+- Tabla: `ecoe_ts_consejos`, creada exclusivamente mediante migracion.
+- Las fotografias se guardan en `public/uploads/consejos/` y la base de datos conserva la ruta relativa en `imagen`.
+- Portal publico: `consulta/tarifa-social` muestra los registros activos ordenados por `orden` y resuelve cada texto con `__($clave, $texto)`.
+- Administracion: `/admin/consejos`, protegido por `admin.consejos.view`.
+- Tras desplegar, ejecutar `Sincronizar Modulos` desde `/admin/roles` para registrar y asignar el nuevo permiso.
 
 ## Modulo de Idiomas y Accesibilidad
 

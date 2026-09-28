@@ -26,6 +26,8 @@ $routes->group('gerencias/ecoe', [
     $routes->post('tarifa-social', 'TarifaSocialController::index', ['filter' => 'gerenciaAccess:ecoe,gerencia.ecoe.tarifa_social.access']);
     $routes->get('tarifa-social/estados', 'TarifaSocialController::estadosIndex', ['filter' => 'gerenciaAccess:ecoe,gerencia.ecoe.tarifa_social.access']);
     $routes->post('tarifa-social/estados', 'TarifaSocialController::estadosIndex', ['filter' => 'gerenciaAccess:ecoe,gerencia.ecoe.tarifa_social.access']);
+    $routes->get('tarifa-social/tarifas', 'TarifasMensualesController::index', ['filter' => 'gerenciaAccess:ecoe,gerencia.ecoe.tarifa_social.tarifas.access']);
+    $routes->post('tarifa-social/tarifas', 'TarifasMensualesController::index', ['filter' => 'gerenciaAccess:ecoe,gerencia.ecoe.tarifa_social.tarifas.access']);
 
     // ── Tarifa Social: adjuntos (JSON) ─────────────────────────────────────
     $routes->get('tarifa-social/adjuntos', 'TarifaSocialController::adjuntosJson', ['filter' => 'gerenciaAccess:ecoe,gerencia.ecoe.tarifa_social.access']);

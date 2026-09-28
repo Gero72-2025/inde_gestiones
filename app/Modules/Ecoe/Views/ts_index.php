@@ -15,6 +15,12 @@ $ajaxCipherKey = (string) ($ajaxCipherKey ?? '');
         <p class="text-secondary mb-0">Gestión de solicitudes ciudadanas de Tarifa Social ECOE.</p>
     </div>
     <div class="d-flex gap-2">
+        <a class="btn btn-outline-warning" href="<?= esc(site_url('admin/consejos')) ?>">
+            <i class="bi bi-lightbulb me-1"></i>Consejos de ahorro
+        </a>
+        <a class="btn btn-outline-success" href="<?= esc(site_url('gerencias/ecoe/tarifa-social/tarifas')) ?>">
+            <i class="bi bi-currency-exchange me-1"></i>Tarifas mensuales
+        </a>
         <a class="btn btn-outline-dark" href="<?= esc(site_url('gerencias/ecoe/tarifa-social/estados')) ?>">
             <i class="bi bi-signpost-split me-1"></i>Estados
         </a>

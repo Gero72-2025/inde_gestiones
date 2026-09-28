@@ -11,6 +11,7 @@ use App\Modules\Ecoe\Models\TsBitacoraModel;
 use App\Modules\Ecoe\Models\TsEstadoModel;
 use App\Modules\Ecoe\Models\TsPdfTemplateModel;
 use App\Modules\Ecoe\Models\TsTicketModel;
+use App\Modules\Ecoe\Models\TarifaMensualModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -49,6 +50,10 @@ class TarifaSocialController extends AdminBaseController
 
     // ─── Tamaño máximo por archivo: 5 MB ──────────────────────────────────────
     private const MAX_FILE_BYTES = 5 * 1024 * 1024;
+    private const ECOE_QUERY_TIMEOUT_SECONDS = 8;
+    private const ECOE_MAX_RESULT_ROWS = 120;
+    private const ECOE_RATE_LIMIT_REQUESTS = 10;
+    private const ECOE_RATE_LIMIT_WINDOW_SECONDS = 60;
 
     /** @var array<string, string> */
     private const MIME_TO_EXT = [
@@ -65,6 +70,7 @@ class TarifaSocialController extends AdminBaseController
     private TsAdjuntoModel     $adjuntoModel;
     private TsBitacoraModel    $bitacoraModel;
     private UploadLogModel     $uploadLogModel;
+    private TarifaMensualModel $tarifaMensualModel;
 
     public function initController($request, $response, $logger): void
     {
@@ -77,6 +83,7 @@ class TarifaSocialController extends AdminBaseController
         $this->adjuntoModel       = new TsAdjuntoModel();
         $this->bitacoraModel      = new TsBitacoraModel();
         $this->uploadLogModel     = new UploadLogModel();
+        $this->tarifaMensualModel = new TarifaMensualModel();
     }
 
     /**
@@ -1178,8 +1185,6 @@ class TarifaSocialController extends AdminBaseController
 
     private function normalizarHistorialEcoe(array $rows, string $correlativo): array
     {
-        log_message('debug', 'DEBUG: normalizarHistorialEcoe iniciada. Filas recibidas: ' . count($rows));
-
         $periodos = [];
         $usuario = [
             'nombre_usuario' => '',
@@ -1193,8 +1198,6 @@ class TarifaSocialController extends AdminBaseController
             if (! is_array($row)) {
                 continue;
             }
-
-            log_message('debug', 'DEBUG: Procesando fila: ' . json_encode($row));
 
             $mesValor = $this->obtenerValorHistorial($row, ['mes_operacion', 'mes', 'periodo', 'mes_periodo', 'fecha']);
             $mes = $this->convertirMesHistorial($mesValor);
@@ -1210,10 +1213,7 @@ class TarifaSocialController extends AdminBaseController
             $sinAporte = (float) ($this->obtenerValorHistorial($row, ['factura_sin_aporte', 'sin_aporte', 'monto_sin_aporte', 'total_sin_aporte']) ?? 0);
             $conAporte = (float) ($this->obtenerValorHistorial($row, ['factura_con_aporte', 'con_aporte', 'monto_con_aporte', 'total_con_aporte']) ?? 0);
 
-            log_message('debug', "DEBUG: Mes='{$mes}', Consumo={$consumo}, SinAporte={$sinAporte}, ConAporte={$conAporte}");
-
             if ($mes === 'Sin fecha') {
-                log_message('debug', 'DEBUG: Fila saltada porque mes es "Sin fecha"');
                 continue;
             }
 
@@ -1225,7 +1225,6 @@ class TarifaSocialController extends AdminBaseController
                 'factura_con_aporte' => $conAporte,
             ];
 
-            log_message('debug', 'DEBUG: Fila agregada a periodos. Total periodos: ' . count($periodos));
         }
 
         if ($rows !== []) {
@@ -1243,9 +1242,6 @@ class TarifaSocialController extends AdminBaseController
         foreach ($periodos as $periodo) {
             $ahorroTotal += max(0.0, (float) ($periodo['factura_sin_aporte'] ?? 0.0) - (float) ($periodo['factura_con_aporte'] ?? 0.0));
         }
-
-        log_message('debug', 'DEBUG: normalizarHistorialEcoe finalizada. Periodos finales: ' . json_encode($periodos));
-        log_message('debug', 'DEBUG: Ahorro total calculado: ' . $ahorroTotal);
 
         return [
             'correlativo' => $correlativo,
@@ -1649,15 +1645,164 @@ HTML;
         return number_format($valor, 2, '.', ',');
     }
 
-    private function consultarAniosHistorialEcoe(string $correlativo): array
+    private function normalizarCorrelativo(mixed $value): ?string
     {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $correlativo = trim((string) $value);
+        if (strlen($correlativo) > 30 || preg_match('/\A[0-9]{1,30}\z/', $correlativo) !== 1) {
+            return null;
+        }
+
+        return $correlativo;
+    }
+
+    private function normalizarDistribuidoraId(mixed $value): ?int
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $rawId = trim((string) $value);
+        if (preg_match('/\A[1-9][0-9]{0,8}\z/', $rawId) !== 1) {
+            return null;
+        }
+
+        return (int) $rawId;
+    }
+
+    private function permiteConsultaPublica(string $bucket): bool
+    {
+        $ipAddress = (string) $this->request->getIPAddress();
+        $key = 'ecoe-ts-' . $bucket . '-' . substr(hash('sha256', $ipAddress), 0, 32);
+
+        return \Config\Services::throttler()->check(
+            $key,
+            self::ECOE_RATE_LIMIT_REQUESTS,
+            self::ECOE_RATE_LIMIT_WINDOW_SECONDS
+        );
+    }
+
+    private function conectarEcoe(string $database): mixed
+    {
+        if (! function_exists('sqlsrv_connect')) {
+            throw new \RuntimeException('La extensión SQLSRV no está disponible.');
+        }
+
+        $config = config('Database')->ecoe;
+        $hostname = trim((string) ($config['hostname'] ?? ''));
+        $port = (int) ($config['port'] ?? 1433);
+        if ($hostname === '' || $database === '') {
+            throw new \RuntimeException('La conexión SQLSRV ECOE no está configurada.');
+        }
+
+        $connectionOptions = [
+            'Database' => $database,
+            'ConnectionPooling' => false,
+            'CharacterSet' => 'UTF-8',
+            'LoginTimeout' => self::ECOE_QUERY_TIMEOUT_SECONDS,
+            'ReturnDatesAsStrings' => true,
+            'Encrypt' => ! empty($config['encrypt']),
+        ];
+        $username = (string) ($config['username'] ?? '');
+        $password = (string) ($config['password'] ?? '');
+        if ($username !== '' || $password !== '') {
+            $connectionOptions['UID'] = $username;
+            $connectionOptions['PWD'] = $password;
+        }
+
+        $serverName = $hostname . (str_contains($hostname, ',') ? '' : ', ' . $port);
+        $connection = sqlsrv_connect($serverName, $connectionOptions);
+        if ($connection === false) {
+            throw new \RuntimeException($this->erroresSqlsrv());
+        }
+
+        return $connection;
+    }
+
+    private function erroresSqlsrv(): string
+    {
+        if (! function_exists('sqlsrv_errors')) {
+            return 'Error SQLSRV no disponible.';
+        }
+
+        $errors = sqlsrv_errors();
+        if (! is_array($errors)) {
+            return 'Error SQLSRV sin detalle.';
+        }
+
+        return implode('; ', array_map(
+            static fn (array $error): string => trim((string) ($error['message'] ?? 'Error SQLSRV')),
+            $errors
+        ));
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function ejecutarConsultaPreparadaEcoe(mixed $connection, string $sql, array $bindings, int $maxRows = self::ECOE_MAX_RESULT_ROWS): array
+    {
+        if (! function_exists('sqlsrv_prepare') || ! function_exists('sqlsrv_execute') || ! function_exists('sqlsrv_fetch_array')) {
+            throw new \RuntimeException('La extensión SQLSRV no está disponible.');
+        }
+
+        if ($maxRows < 1) {
+            throw new \InvalidArgumentException('El límite de filas SQL debe ser positivo.');
+        }
+
+        $statement = sqlsrv_prepare($connection, $sql, $bindings, [
+            'QueryTimeout' => self::ECOE_QUERY_TIMEOUT_SECONDS,
+            'Scrollable' => SQLSRV_CURSOR_FORWARD,
+        ]);
+
+        if ($statement === false) {
+            throw new \RuntimeException($this->erroresSqlsrv());
+        }
+
         try {
-            $db = db_connect('ecoe');
-            $query = $db->query('EXEC sp_BuscarAniosConHistorialDeocsa @id_usuario = ?', [$correlativo]);
+            if (! sqlsrv_execute($statement)) {
+                throw new \RuntimeException($this->erroresSqlsrv());
+            }
 
             $rows = [];
-            if (is_object($query) && method_exists($query, 'getResultArray')) {
-                $rows = $query->getResultArray();
+            while (($row = sqlsrv_fetch_array($statement, SQLSRV_FETCH_ASSOC)) !== null) {
+                if ($row === false) {
+                    throw new \RuntimeException($this->erroresSqlsrv());
+                }
+
+                if (count($rows) >= $maxRows) {
+                    throw new \RuntimeException('La consulta excedió el límite de filas permitido.');
+                }
+
+                $rows[] = $row;
+            }
+
+            return $rows;
+        } finally {
+            sqlsrv_free_stmt($statement);
+        }
+    }
+
+    private function consultarAniosHistorialEcoe(string $correlativo): array
+    {
+        $correlativo = $this->normalizarCorrelativo($correlativo) ?? '';
+        if ($correlativo === '') {
+            return ['ok' => false, 'anios' => [], 'error' => 'El correlativo no tiene un formato válido.'];
+        }
+
+        try {
+            $connection = $this->conectarEcoe((string) env('database.ecoe.deocsa', 'FAC DEOCSA'));
+            try {
+                $rows = $this->ejecutarConsultaPreparadaEcoe(
+                    $connection,
+                    'EXEC sp_BuscarAniosConHistorialDeocsa @id_usuario = ?',
+                    [$correlativo],
+                    100
+                );
+            } finally {
+                if (is_resource($connection)) {
+                    sqlsrv_close($connection);
+                }
             }
 
             $anios = [];
@@ -1685,8 +1830,8 @@ HTML;
                 'anios' => $anios,
             ];
         } catch (Throwable $e) {
-            log_message('error', 'ECOE años de historial fallido para correlativo {correlativo}: {message}', [
-                'correlativo' => $correlativo,
+            log_message('error', 'ECOE años de historial fallido para referencia {referencia}: {message}', [
+                'referencia' => substr(hash('sha256', $correlativo), 0, 12),
                 'message' => $e->getMessage(),
             ]);
 
@@ -1700,19 +1845,31 @@ HTML;
 
     private function consultarHistorialEcoe(string $correlativo, ?string $anio = null): array
     {
+        $correlativo = $this->normalizarCorrelativo($correlativo) ?? '';
         $anio ??= (string) date('Y');
-        //$anio ??= '2025';
+        if ($correlativo === '' || preg_match('/\A(?:19|20)[0-9]{2}\z/', $anio) !== 1) {
+            return [
+                'ok' => false,
+                'anio' => $anio,
+                'encontrado' => false,
+                'periodos' => [],
+                'mensaje' => 'El correlativo o año no tiene un formato válido.',
+            ];
+        }
 
         try {
-            $db = db_connect('ecoe');
-            $query = $db->query(
-                'EXEC sp_ObtenerHistorialPorAnioDeocsa @id_usuario = ?, @anio = ?',
-                [$correlativo, $anio]
-            );
-
-            $rows = [];
-            if (is_object($query) && method_exists($query, 'getResultArray')) {
-                $rows = $query->getResultArray();
+            $connection = $this->conectarEcoe((string) env('database.ecoe.deocsa', 'FAC DEOCSA'));
+            try {
+                $rows = $this->ejecutarConsultaPreparadaEcoe(
+                    $connection,
+                    'EXEC sp_ObtenerHistorialPorAnioDeocsa @id_usuario = ?, @anio = ?',
+                    [$correlativo, $anio],
+                    self::ECOE_MAX_RESULT_ROWS
+                );
+            } finally {
+                if (is_resource($connection)) {
+                    sqlsrv_close($connection);
+                }
             }
 
             $historial = $this->normalizarHistorialEcoe($rows, $correlativo);
@@ -1729,8 +1886,8 @@ HTML;
                 'pdf_download_url'    => $periodos !== [] ? site_url('api/ecoe/ts/historial-pdf?correlativo=' . rawurlencode($correlativo) . '&anio=' . rawurlencode($anio)) : null,
             ];
         } catch (Throwable $e) {
-            log_message('error', 'ECOE historial externo fallido para correlativo {correlativo}: {message}', [
-                'correlativo' => $correlativo,
+            log_message('error', 'ECOE historial externo fallido para referencia {referencia}: {message}', [
+                'referencia' => substr(hash('sha256', $correlativo), 0, 12),
                 'message'    => $e->getMessage(),
             ]);
 
@@ -1746,45 +1903,942 @@ HTML;
     }
 
     /**
+     * Resuelve la base externa desde un catalogo interno. Nunca se usa el
+     * nombre recibido del navegador como identificador SQL.
+     */
+    private function resolverBaseEcoe(string $distribuidora): ?string
+    {
+        $mapa = [
+            'DEOCSA' => (string) env('database.ecoe.deocsa', 'FAC DEOCSA'),
+            'DEORSA' => (string) env('database.ecoe.deorsa', 'FAC DEORSA'),
+            'EEGSA'  => (string) env('database.ecoe.eegsa', 'FAC EEGSA'),
+        ];
+
+        $nombre = strtoupper(trim($distribuidora));
+        $base = $mapa[$nombre] ?? null;
+
+        return $base !== null && preg_match('/^[A-Za-z0-9 _-]{1,128}$/', $base) === 1
+            ? $base
+            : null;
+    }
+
+    /** @return array<string, array<int, string>> */
+    private function obtenerColumnasTablasEcoe(mixed $connection, array $particiones): array
+    {
+        if ($particiones === []) {
+            return [];
+        }
+
+        $filters = [];
+        $bindings = [];
+        foreach ($particiones as $particion) {
+            $filters[] = '(s.name = ? AND t.name = ?)';
+            $bindings[] = (string) $particion['esquema'];
+            $bindings[] = (string) $particion['tabla'];
+        }
+
+        $sql = 'SELECT s.name AS schema_name, t.name AS table_name, c.name AS column_name
+             FROM sys.tables AS t
+             INNER JOIN sys.schemas AS s ON s.schema_id = t.schema_id
+             INNER JOIN sys.columns AS c ON c.object_id = t.object_id
+             WHERE ' . implode(' OR ', $filters) . '
+             ORDER BY s.name, t.name, c.column_id';
+        $rows = $this->ejecutarConsultaPreparadaEcoe($connection, $sql, $bindings, max(1000, count($particiones) * 500));
+
+        $columnsByTable = [];
+        foreach ($rows as $row) {
+            $key = (string) ($row['schema_name'] ?? '') . "\0" . (string) ($row['table_name'] ?? '');
+            $column = (string) ($row['column_name'] ?? '');
+            if ($column !== '') {
+                $columnsByTable[$key][] = $column;
+            }
+        }
+
+        return $columnsByTable;
+    }
+
+    private function encontrarColumnaEcoe(array $columnas, array $candidatas): ?string
+    {
+        $porNombre = [];
+        foreach ($columnas as $columna) {
+            $porNombre[strtolower($columna)] = $columna;
+        }
+
+        foreach ($candidatas as $candidata) {
+            if (isset($porNombre[strtolower($candidata)])) {
+                return $porNombre[strtolower($candidata)];
+            }
+        }
+
+        return null;
+    }
+
+    private function identificadorSqlEcoe(string $identificador): string
+    {
+        return '[' . str_replace(']', ']]', $identificador) . ']';
+    }
+
+    private function expresionAgregadaEcoe(array $columnas, array $candidatas, string $alias, string $aggregate = 'SUM'): string
+    {
+        if (! in_array($aggregate, ['SUM', 'MAX'], true)) {
+            throw new \InvalidArgumentException('Agregado SQL no permitido.');
+        }
+
+        $columna = $this->encontrarColumnaEcoe($columnas, $candidatas);
+        if ($columna === null) {
+            return 'CAST(0 AS decimal(38,4)) AS ' . $this->identificadorSqlEcoe($alias);
+        }
+
+        $expression = 'TRY_CONVERT(decimal(19,4), ' . $this->identificadorSqlEcoe($columna) . ')';
+
+        return $aggregate . '(' . $expression . ') AS ' . $this->identificadorSqlEcoe($alias);
+    }
+
+    /** @return array<int, array{esquema: string, tabla: string, anio: int, mes: int}> */
+    private function obtenerParticionesActivasEcoe($db, array $periodosSolicitados = []): array
+    {
+        $rows = $this->ejecutarConsultaPreparadaEcoe(
+            $db,
+            'SELECT TABLE_SCHEMA AS schema_name, TABLE_NAME AS table_name
+             FROM INFORMATION_SCHEMA.TABLES
+             WHERE TABLE_TYPE = ? AND TABLE_NAME LIKE ?
+             ORDER BY TABLE_SCHEMA, TABLE_NAME',
+            ['BASE TABLE', '%20[0-9][0-9]%'],
+            1000
+        );
+
+        $particiones = [];
+        $periodosPermitidos = [];
+        foreach ($periodosSolicitados as $periodo) {
+            $periodosPermitidos[sprintf('%04d-%02d', (int) ($periodo['anio'] ?? 0), (int) ($periodo['mes'] ?? 0))] = true;
+        }
+        $tablasDisponibles = [];
+        $nomenclaturas = [];
+        foreach ($rows as $row) {
+            $esquema = (string) ($row['schema_name'] ?? '');
+            $tabla = (string) ($row['table_name'] ?? '');
+            if ($esquema !== '' && $tabla !== '') {
+                $tablasDisponibles[] = '[' . $esquema . '].[' . $tabla . ']';
+            }
+
+            // Detecta cualquier nomenclatura que contenga año y mes:
+            // DC 2026 07, DR_2026_07, FACTURA-2026-07, etc.
+            if (preg_match('/(?<!\d)(20\d{2})\D+(0[1-9]|1[0-2])(?!\d)/', $tabla, $matches) !== 1) {
+                continue;
+            }
+
+            $periodoKey = $matches[1] . '-' . $matches[2];
+            if ($periodosSolicitados !== [] && ! isset($periodosPermitidos[$periodoKey])) {
+                continue;
+            }
+
+            $nomenclatura = strtoupper((string) preg_replace('/\s*20\d{2}.*$/i', '', $tabla));
+            $nomenclaturas[$nomenclatura !== '' ? $nomenclatura : '(sin prefijo)'] = true;
+
+            $particiones[] = [
+                'esquema' => $esquema,
+                'tabla' => $tabla,
+                'anio' => (int) $matches[1],
+                'mes' => (int) $matches[2],
+            ];
+        }
+
+        usort($particiones, static function (array $left, array $right): int {
+            return [$right['anio'], $right['mes']] <=> [$left['anio'], $left['mes']];
+        });
+
+        if ($periodosSolicitados === []) {
+            $particiones = array_slice($particiones, 0, 3);
+        }
+        usort($particiones, static function (array $left, array $right): int {
+            return [$left['anio'], $left['mes']] <=> [$right['anio'], $right['mes']];
+        });
+
+        log_message('debug', 'ECOE TS: catalogo INFORMATION_SCHEMA.TABLES detectado. tablas_disponibles={tablas}.', [
+            'tablas' => implode(', ', $tablasDisponibles) ?: '(ninguna)',
+        ]);
+        log_message('debug', 'ECOE TS: nomenclaturas mensuales detectadas. nomenclaturas={nomenclaturas}, tablas_mensuales_validas={cantidad}.', [
+            'nomenclaturas' => implode(', ', array_keys($nomenclaturas)) ?: '(ninguna)',
+            'cantidad' => count($particiones),
+        ]);
+
+        return $particiones;
+    }
+
+    /**
+     * Lee las particiones mensuales disponibles y devuelve el contrato que
+     * consume la vista de graficas. El filtro por ID queda parametrizado para
+     * permitir que SQL Server use el indice de cada particion.
+     *
+    * @return array{meses: array<int, array<string, mixed>>, precio_kwh_social: float, hay_registros: bool}
+     */
+    private function consultarMesesEcoe(string $distribuidora, string $correlativo, int $anio, array $periodosSolicitados = []): array
+    {
+        $base = $this->resolverBaseEcoe($distribuidora);
+        if ($base === null) {
+            log_message('error', 'ECOE TS: no se pudo resolver la base para distribuidora={distribuidora}.', [
+                'distribuidora' => $distribuidora,
+            ]);
+            throw new \RuntimeException('La distribuidora no tiene una base externa configurada.');
+        }
+
+        $periodosCache = $periodosSolicitados;
+        usort($periodosCache, static fn (array $left, array $right): int =>
+            [(int) ($left['anio'] ?? 0), (int) ($left['mes'] ?? 0)] <=> [(int) ($right['anio'] ?? 0), (int) ($right['mes'] ?? 0)]
+        );
+        $cacheKey = 'ecoe_ts_months_' . hash('sha256', json_encode([
+            strtoupper($base),
+            $correlativo,
+            $anio,
+            $periodosCache,
+        ], JSON_UNESCAPED_SLASHES));
+        $cache = null;
+        try {
+            $cache = \Config\Services::cache();
+            $cached = $cache->get($cacheKey);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        } catch (Throwable $e) {
+            log_message('warning', 'ECOE TS: lectura de caché omitida: {message}.', ['message' => $e->getMessage()]);
+        }
+
+        $config = config('Database')->ecoe;
+
+        log_message('debug', 'ECOE TS: iniciando consulta externa. base={base}, distribuidora={distribuidora}, referencia={referencia}, anio={anio}.', [
+            'base' => $base,
+            'distribuidora' => $distribuidora,
+            'referencia' => substr(hash('sha256', $correlativo), 0, 12),
+            'anio' => $anio,
+        ]);
+
+        $db = null;
+        try {
+            $db = $this->conectarEcoe($base);
+            $catalogoRows = $this->ejecutarConsultaPreparadaEcoe($db, 'SELECT DB_NAME() AS database_name', [], 1);
+            $catalogo = $catalogoRows[0] ?? [];
+            $baseActiva = (string) ($catalogo['database_name'] ?? '');
+            log_message('debug', 'ECOE TS: contexto SQL Server confirmado. base_solicitada={solicitada}, base_activa={activa}.', [
+                'solicitada' => $base,
+                'activa' => $baseActiva,
+            ]);
+
+            if (strcasecmp($baseActiva, $base) !== 0) {
+                throw new \RuntimeException('SQL Server no cambio al catalogo solicitado: ' . $base . '.');
+            }
+        } catch (Throwable $e) {
+            if (is_resource($db)) {
+                sqlsrv_close($db);
+            }
+
+            log_message('critical', 'ECOE TS: error de conexion SQL Server. base={base}, driver={driver}, host={host}, mensaje={message}.', [
+                'base' => $base,
+                'driver' => (string) ($config['DBDriver'] ?? ''),
+                'host' => (string) ($config['hostname'] ?? ''),
+                'message' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+
+        $particiones = $this->obtenerParticionesActivasEcoe($db, $periodosSolicitados);
+
+        log_message('debug', 'ECOE TS: particiones candidatas. base={base}, tablas={tablas}.', [
+            'base' => $base,
+            'tablas' => implode(', ', array_map(static fn (array $particion): string => '[' . $particion['esquema'] . '].[' . $particion['tabla'] . ']', $particiones)),
+        ]);
+
+        if ($particiones === []) {
+            log_message('warning', 'ECOE TS: no existen particiones mensuales activas en la base. base={base}, anio_solicitado={anio}.', [
+                'base' => $base,
+                'anio' => $anio,
+            ]);
+            if ($periodosSolicitados === []) {
+                if (is_resource($db)) {
+                    sqlsrv_close($db);
+                }
+                throw new \RuntimeException('La base externa no contiene tablas mensuales compatibles.');
+            }
+        }
+
+        $selects = [];
+        $bindings = [];
+        $meses = [];
+        $hayRegistrosExternos = false;
+        $nombresMes = [1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril', 5 => 'Mayo', 6 => 'Junio',
+            7 => 'Julio', 8 => 'Agosto', 9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre'];
+
+        foreach ($periodosSolicitados as $periodo) {
+            $periodYear = (int) ($periodo['anio'] ?? 0);
+            $periodMonth = (int) ($periodo['mes'] ?? 0);
+            if ($periodYear < 2000 || $periodMonth < 1 || $periodMonth > 12) {
+                continue;
+            }
+
+            $periodKey = sprintf('%04d-%02d', $periodYear, $periodMonth);
+            $meses[$periodKey] = [
+                '_periodo_key' => $periodKey,
+                '_mes_num' => $periodMonth,
+                '_tabla_disponible' => false,
+                '_registro_encontrado' => false,
+                'mes' => $nombresMes[$periodMonth],
+                'consumo_kwh' => 0.0,
+                'costo_tarifa_plena' => 0.0,
+                'costo_tarifa_social' => 0.0,
+                'costo_tarifa_no_social' => 0.0,
+                'aporte_inde' => 0.0,
+                'beneficio_tarifa_social' => 0.0,
+                'ahorro' => 0.0,
+                '_precio' => 0.0,
+            ];
+        }
+
+        $columnasPorTabla = $this->obtenerColumnasTablasEcoe($db, $particiones);
+        foreach ($particiones as $particion) {
+            $partitionKey = $particion['esquema'] . "\0" . $particion['tabla'];
+            $columnas = $columnasPorTabla[$partitionKey] ?? [];
+
+            if ($columnas === []) {
+                log_message('warning', 'ECOE TS: particion inexistente o sin columnas. base={base}, tabla={tabla}.', [
+                    'base' => $base,
+                    'tabla' => '[' . $particion['esquema'] . '].[' . $particion['tabla'] . ']',
+                ]);
+                continue;
+            }
+
+            $idColumna = $this->encontrarColumnaEcoe($columnas, ['id_usuario', 'nis', 'correlativo', 'id']);
+            log_message('debug', 'ECOE TS: columnas inspeccionadas. base={base}, tabla={tabla}, columnas={columnas}, columna_busqueda={columna}, referencia={referencia}.', [
+                'base' => $base,
+                'tabla' => '[' . $particion['esquema'] . '].[' . $particion['tabla'] . ']',
+                'columnas' => implode(', ', $columnas),
+                'columna' => $idColumna ?? '(ninguna)',
+                'referencia' => substr(hash('sha256', $correlativo), 0, 12),
+            ]);
+
+            $mapeoColumnas = [
+                'consumo_kwh' => $this->encontrarColumnaEcoe($columnas, ['consumo_kwh', 'csmo_energia_total', 'consumo_energia_total', 'consumo', 'kwh']),
+                'costo_tarifa_plena' => $this->encontrarColumnaEcoe($columnas, ['costo_tarifa_plena', 'factura_sin_aporte', 'imp_tns', 'importe_tns', 'sin_aporte', 'monto_sin_aporte', 'total_sin_aporte']),
+                'costo_tarifa_social' => $this->encontrarColumnaEcoe($columnas, ['costo_tarifa_social', 'factura_con_aporte', 'imp_ts', 'importe_ts', 'con_aporte', 'monto_con_aporte', 'total_con_aporte']),
+                'costo_tarifa_no_social' => $this->encontrarColumnaEcoe($columnas, ['costo_tarifa_no_social', 'factura_sin_aporte', 'imp_tns', 'importe_tns', 'sin_aporte', 'monto_sin_aporte']),
+                'aporte_inde' => $this->encontrarColumnaEcoe($columnas, ['aporte_inde', 'aporte a tarifa social Inde', 'aporte_solidaridad_inde', 'aporte_social', 'aporte']),
+                'beneficio_tarifa_social' => $this->encontrarColumnaEcoe($columnas, ['beneficio_tarifa_social', 'ahorro_tarifa_social']),
+                'precio_kwh_social' => $this->encontrarColumnaEcoe($columnas, ['precio_kwh_social', 'precio_social', 'tarifa_social']),
+            ];
+            log_message('debug', 'ECOE TS: mapeo fisico a JSON. base={base}, tabla={tabla}, mapeo={mapeo}.', [
+                'base' => $base,
+                'tabla' => '[' . $particion['esquema'] . '].[' . $particion['tabla'] . ']',
+                'mapeo' => json_encode($mapeoColumnas, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+
+            if ($idColumna === null) {
+                log_message('warning', 'ECOE: la tabla {tabla} no tiene columna de usuario.', ['tabla' => $particion['tabla']]);
+                continue;
+            }
+
+            $tablaSql = $this->identificadorSqlEcoe($base) . '.'
+                . $this->identificadorSqlEcoe($particion['esquema']) . '.'
+                . $this->identificadorSqlEcoe($particion['tabla']);
+            $aggregateSql = 'SELECT COUNT_BIG(*) AS [registros_encontrados], '
+                . $this->expresionAgregadaEcoe($columnas, ['consumo_kwh', 'csmo_energia_total', 'consumo_energia_total', 'consumo', 'kwh'], 'consumo_kwh') . ', '
+                . $this->expresionAgregadaEcoe($columnas, ['costo_tarifa_plena', 'factura_sin_aporte', 'imp_tns', 'importe_tns', 'sin_aporte', 'monto_sin_aporte', 'total_sin_aporte'], 'costo_tarifa_plena') . ', '
+                . $this->expresionAgregadaEcoe($columnas, ['costo_tarifa_social', 'factura_con_aporte', 'imp_ts', 'importe_ts', 'con_aporte', 'monto_con_aporte', 'total_con_aporte'], 'costo_tarifa_social') . ', '
+                . $this->expresionAgregadaEcoe($columnas, ['costo_tarifa_no_social', 'factura_sin_aporte', 'imp_tns', 'importe_tns', 'sin_aporte', 'monto_sin_aporte'], 'costo_tarifa_no_social') . ', '
+                . $this->expresionAgregadaEcoe($columnas, ['aporte_inde', 'aporte a tarifa social Inde', 'aporte_solidaridad_inde', 'aporte_social', 'aporte'], 'aporte_inde') . ', '
+                . $this->expresionAgregadaEcoe($columnas, ['beneficio_tarifa_social', 'ahorro_tarifa_social'], 'beneficio_tarifa_social') . ', '
+                . $this->expresionAgregadaEcoe($columnas, ['precio_kwh_social', 'precio_social', 'tarifa_social'], 'precio_kwh_social', 'MAX') . '
+                FROM ' . $tablaSql . ' WHERE ' . $this->identificadorSqlEcoe($idColumna) . ' = ?';
+            $selects[] = 'SELECT ? AS anio_num, ? AS mes_num, [aggregate_rows].* FROM (' . $aggregateSql . ') AS [aggregate_rows]';
+            $bindings[] = $particion['anio'];
+            $bindings[] = $particion['mes'];
+            $bindings[] = $correlativo;
+
+            log_message('debug', 'ECOE TS: SELECT agregado preparado. base={base}, tabla={tabla}, columna_busqueda={columna}, sql={sql}, binding_count={binding_count}.', [
+                'base' => $base,
+                'tabla' => '[' . $particion['esquema'] . '].[' . $particion['tabla'] . ']',
+                'columna' => $idColumna,
+                'sql' => end($selects),
+                'binding_count' => 3,
+            ]);
+            $periodKey = sprintf('%04d-%02d', $particion['anio'], $particion['mes']);
+            if (! isset($meses[$periodKey])) {
+                $meses[$periodKey] = [
+                    '_periodo_key' => $periodKey,
+                    '_mes_num' => $particion['mes'],
+                    '_registro_encontrado' => false,
+                    'mes' => $nombresMes[$particion['mes']],
+                    'consumo_kwh' => 0.0,
+                    'costo_tarifa_plena' => 0.0,
+                    'costo_tarifa_social' => 0.0,
+                    'costo_tarifa_no_social' => 0.0,
+                    'aporte_inde' => 0.0,
+                    'beneficio_tarifa_social' => 0.0,
+                    'ahorro' => 0.0,
+                    '_precio' => 0.0,
+                ];
+            }
+            $meses[$periodKey]['_tabla_disponible'] = true;
+        }
+
+        if ($selects !== []) {
+            $sql = implode(' UNION ALL ', $selects);
+            log_message('debug', 'ECOE TS: UNION ALL agregado. base={base}, tablas_consultadas={cantidad}, binding_count={binding_count}, sql={sql}.', [
+                'base' => $base,
+                'cantidad' => count($selects),
+                'binding_count' => count($bindings),
+                'sql' => $sql,
+            ]);
+
+            try {
+                $filas = $this->ejecutarConsultaPreparadaEcoe($db, $sql, $bindings, count($selects));
+            } catch (Throwable $e) {
+                log_message('error', 'ECOE TS: error ejecutando UNION ALL agregado. base={base}, tablas={tablas}, mensaje={message}.', [
+                    'base' => $base,
+                    'tablas' => count($selects),
+                    'message' => $e->getMessage(),
+                ]);
+                throw $e;
+            }
+
+            log_message('debug', 'ECOE TS: consulta completada. base={base}, filas={filas}, resultado_por_mes={resultado}.', [
+                'base' => $base,
+                'filas' => count($filas),
+                'resultado' => json_encode($filas, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+            foreach ($filas as $row) {
+                $periodKey = sprintf('%04d-%02d', (int) ($row['anio_num'] ?? 0), (int) ($row['mes_num'] ?? 0));
+                if (! isset($meses[$periodKey])) {
+                    continue;
+                }
+
+                if ((int) ($row['registros_encontrados'] ?? 0) <= 0) {
+                    continue;
+                }
+
+                $hayRegistrosExternos = true;
+                $meses[$periodKey]['_registro_encontrado'] = true;
+                foreach (['consumo_kwh', 'costo_tarifa_plena', 'costo_tarifa_social', 'costo_tarifa_no_social', 'aporte_inde', 'beneficio_tarifa_social'] as $campo) {
+                    $meses[$periodKey][$campo] += (float) ($row[$campo] ?? 0);
+                }
+                $meses[$periodKey]['_precio'] = max($meses[$periodKey]['_precio'], (float) ($row['precio_kwh_social'] ?? 0));
+            }
+        }
+
+        foreach ($meses as &$mes) {
+            if ($mes['costo_tarifa_plena'] == 0.0 && $mes['costo_tarifa_no_social'] != 0.0) {
+                $mes['costo_tarifa_plena'] = $mes['costo_tarifa_no_social'];
+            }
+
+            if ($mes['costo_tarifa_no_social'] == 0.0) {
+                $mes['costo_tarifa_no_social'] = $mes['costo_tarifa_plena'];
+            }
+
+            // La diferencia entre tarifa plena y tarifa social es la fuente
+            // de verdad del beneficio, aunque exista una columna adicional.
+            $mes['beneficio_tarifa_social'] = max(
+                0.0,
+                (float) $mes['costo_tarifa_plena'] - (float) $mes['costo_tarifa_social']
+            );
+
+            if ($mes['_precio'] == 0.0 && $mes['consumo_kwh'] > 0.0 && $mes['costo_tarifa_social'] > 0.0) {
+                $mes['_precio'] = $mes['costo_tarifa_social'] / $mes['consumo_kwh'];
+            }
+            $mes['ahorro'] = $mes['beneficio_tarifa_social'] + abs($mes['aporte_inde']);
+            unset($mes['_precio']);
+        }
+        unset($mes);
+
+        $precioKwhSocial = (float) max(array_map(
+            static fn (array $mes): float => $mes['consumo_kwh'] > 0.0
+                ? (float) $mes['costo_tarifa_social'] / (float) $mes['consumo_kwh']
+                : 0.0,
+            $meses ?: [['consumo_kwh' => 0.0, 'costo_tarifa_social' => 0.0]]
+        ));
+
+        $result = [
+            'meses' => array_values($meses),
+            'precio_kwh_social' => $precioKwhSocial,
+            'hay_registros' => $hayRegistrosExternos,
+        ];
+        if ($cache !== null) {
+            try {
+                $cache->save($cacheKey, $result, 20);
+            } catch (Throwable $e) {
+                log_message('warning', 'ECOE TS: escritura de caché omitida: {message}.', ['message' => $e->getMessage()]);
+            }
+        }
+        if (is_resource($db)) {
+            sqlsrv_close($db);
+        }
+
+        return $result;
+    }
+
+    /** @return array<string, array{tabla_disponible: bool, registro_encontrado: bool}> */
+    private function consultarDisponibilidadMesesEcoe(string $distribuidora, string $correlativo, array $periodos): array
+    {
+        $base = $this->resolverBaseEcoe($distribuidora);
+        if ($base === null) {
+            throw new \RuntimeException('La distribuidora no tiene una base externa configurada.');
+        }
+
+        $periodos = array_values(array_filter($periodos, static fn (array $period): bool =>
+            (int) ($period['anio'] ?? 0) >= 2000
+            && (int) ($period['mes'] ?? 0) >= 1
+            && (int) ($period['mes'] ?? 0) <= 12
+        ));
+        $cacheKey = 'ecoe_ts_availability_' . hash('sha256', json_encode([
+            strtoupper($base),
+            $correlativo,
+            $periodos,
+        ], JSON_UNESCAPED_SLASHES));
+
+        $cache = null;
+        try {
+            $cache = \Config\Services::cache();
+            $cached = $cache->get($cacheKey);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        } catch (Throwable $e) {
+            log_message('warning', 'ECOE TS: lectura de caché de disponibilidad omitida: {message}.', ['message' => $e->getMessage()]);
+        }
+
+        $periodStatus = [];
+        foreach ($periodos as $period) {
+            $periodKey = sprintf('%04d-%02d', (int) $period['anio'], (int) $period['mes']);
+            $periodStatus[$periodKey] = ['tabla_disponible' => false, 'registro_encontrado' => false];
+        }
+
+        $connection = $this->conectarEcoe($base);
+        try {
+            $particiones = $this->obtenerParticionesActivasEcoe($connection, $periodos);
+            $columnsByTable = $this->obtenerColumnasTablasEcoe($connection, $particiones);
+            $queries = [];
+            $bindings = [];
+
+            foreach ($particiones as $partition) {
+                $partitionKey = $partition['esquema'] . "\0" . $partition['tabla'];
+                $columns = $columnsByTable[$partitionKey] ?? [];
+                $idColumn = $this->encontrarColumnaEcoe($columns, ['id_usuario', 'nis', 'correlativo', 'id']);
+                if ($idColumn === null) {
+                    continue;
+                }
+
+                $periodKey = sprintf('%04d-%02d', $partition['anio'], $partition['mes']);
+                $periodStatus[$periodKey]['tabla_disponible'] = true;
+
+                $table = $this->identificadorSqlEcoe($base) . '.'
+                    . $this->identificadorSqlEcoe($partition['esquema']) . '.'
+                    . $this->identificadorSqlEcoe($partition['tabla']);
+                $queries[] = 'SELECT ? AS anio_num, ? AS mes_num WHERE EXISTS '
+                    . '(SELECT TOP (1) 1 FROM ' . $table . ' WHERE '
+                    . $this->identificadorSqlEcoe($idColumn) . ' = ?)';
+                $bindings[] = $partition['anio'];
+                $bindings[] = $partition['mes'];
+                $bindings[] = $correlativo;
+            }
+
+            if ($queries !== []) {
+                $rows = $this->ejecutarConsultaPreparadaEcoe($connection, implode(' UNION ALL ', $queries), $bindings, count($queries));
+                foreach ($rows as $row) {
+                    $periodKey = sprintf('%04d-%02d', (int) ($row['anio_num'] ?? 0), (int) ($row['mes_num'] ?? 0));
+                    if (isset($periodStatus[$periodKey])) {
+                        $periodStatus[$periodKey]['registro_encontrado'] = true;
+                    }
+                }
+            }
+        } finally {
+            if (is_resource($connection)) {
+                sqlsrv_close($connection);
+            }
+        }
+
+        if ($cache !== null) {
+            try {
+                $cache->save($cacheKey, $periodStatus, 60);
+            } catch (Throwable $e) {
+                log_message('warning', 'ECOE TS: escritura de caché de disponibilidad omitida: {message}.', ['message' => $e->getMessage()]);
+            }
+        }
+
+        return $periodStatus;
+    }
+
+    /** @return array<string, array{periodos: array<int, array{anio: int, mes: int}>}> */
+    private function periodosReporteDisponibles(): array
+    {
+        $currentMonth = new \DateTimeImmutable('first day of this month');
+        $year = (int) $currentMonth->format('Y');
+        $ranges = [];
+
+        foreach ([1, 4, 7, 10] as $quarterIndex => $startMonth) {
+            $periods = [];
+            for ($offset = 0; $offset < 3; $offset++) {
+                $period = new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $startMonth));
+                $period = $period->modify('+' . $offset . ' months');
+                $periods[] = ['anio' => (int) $period->format('Y'), 'mes' => (int) $period->format('n')];
+            }
+            $ranges['q' . ($quarterIndex + 1)] = ['periodos' => $periods];
+        }
+
+        $sixMonthStart = $currentMonth->modify('-5 months');
+        $sixMonthPeriods = [];
+        for ($offset = 0; $offset < 6; $offset++) {
+            $period = $sixMonthStart->modify('+' . $offset . ' months');
+            $sixMonthPeriods[] = ['anio' => (int) $period->format('Y'), 'mes' => (int) $period->format('n')];
+        }
+        $ranges['last6'] = ['periodos' => $sixMonthPeriods];
+
+        $yearPeriods = [];
+        for ($month = 1; $month <= 12; $month++) {
+            $yearPeriods[] = ['anio' => $year, 'mes' => $month];
+        }
+        $ranges['year'] = ['periodos' => $yearPeriods];
+
+        return $ranges;
+    }
+
+    private function obtenerConsultaReporte(string $rateLimitBucket): array|\CodeIgniter\HTTP\ResponseInterface
+    {
+        $distribuidoraId = $this->normalizarDistribuidoraId($this->request->getPost('distribuidora_id'));
+        $correlativo = $this->normalizarCorrelativo($this->request->getPost('correlativo'));
+
+        if ($distribuidoraId === null || $correlativo === null) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'El NIS/correlativo o la distribuidora no tiene un formato válido.']], 422);
+        }
+
+        if (! $this->permiteConsultaPublica('lookup')) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'Demasiadas consultas. Espera un momento e inténtalo de nuevo.']], 429);
+        }
+
+        $distribuidora = $this->distribuidoraModel->find($distribuidoraId);
+        if (! $distribuidora || (int) ($distribuidora['status'] ?? 0) !== 1) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'Distribuidora no encontrada.']], 404);
+        }
+
+        return [
+            'distribuidora_id' => $distribuidoraId,
+            'distribuidora' => $distribuidora,
+            'correlativo' => $correlativo,
+        ];
+    }
+
+    /** POST api/ecoe/ts/reporte-disponibilidad */
+    public function apiDisponibilidadReporte(): mixed
+    {
+        $consulta = $this->obtenerConsultaReporte('report-availability');
+        if (! is_array($consulta)) {
+            return $consulta;
+        }
+
+        $ranges = $this->periodosReporteDisponibles();
+        $requestedByKey = [];
+        $currentPeriodKey = date('Y-m');
+        foreach ($ranges as $range) {
+            foreach ($range['periodos'] as $period) {
+                $periodKey = sprintf('%04d-%02d', $period['anio'], $period['mes']);
+                if ($periodKey <= $currentPeriodKey) {
+                    $requestedByKey[$periodKey] = $period;
+                }
+            }
+        }
+
+        try {
+            $periodStatus = $this->consultarDisponibilidadMesesEcoe(
+                (string) ($consulta['distribuidora']['nombre'] ?? ''),
+                $consulta['correlativo'],
+                array_values($requestedByKey)
+            );
+        } catch (Throwable $e) {
+            log_message('error', 'ECOE TS: disponibilidad de reporte fallida. distribuidora={distribuidora}, referencia={referencia}, mensaje={message}.', [
+                'distribuidora' => (string) ($consulta['distribuidora']['nombre'] ?? ''),
+                'referencia' => substr(hash('sha256', $consulta['correlativo']), 0, 12),
+                'message' => $e->getMessage(),
+            ]);
+            $unavailable = [];
+            foreach ($ranges as $key => $_range) {
+                $unavailable[$key] = [
+                    'available' => false,
+                    'tables_available' => false,
+                    'has_data' => false,
+                    'validation_incomplete' => true,
+                ];
+            }
+
+            return $this->encryptedJsonResponse([
+                'ok' => true,
+                'data' => [
+                    'periods' => $unavailable,
+                    'validation_incomplete' => true,
+                ],
+            ]);
+        }
+
+        $availability = [];
+        foreach ($ranges as $key => $range) {
+            $tablesAvailable = true;
+            $hasData = false;
+            $containsFutureMonths = false;
+            foreach ($range['periodos'] as $period) {
+                $periodKey = sprintf('%04d-%02d', $period['anio'], $period['mes']);
+                if ($periodKey > $currentPeriodKey) {
+                    $containsFutureMonths = true;
+                    $tablesAvailable = false;
+                    continue;
+                }
+
+                $month = $periodStatus[$periodKey] ?? [];
+                $tablesAvailable = $tablesAvailable && ! empty($month['tabla_disponible']);
+                $hasData = $hasData || ! empty($month['registro_encontrado']);
+            }
+
+            $availability[$key] = [
+                'available' => $tablesAvailable && $hasData && ! $containsFutureMonths,
+                'tables_available' => $tablesAvailable,
+                'has_data' => $hasData,
+            ];
+        }
+
+        return $this->encryptedJsonResponse(['ok' => true, 'data' => ['periods' => $availability]]);
+    }
+
+    /** POST api/ecoe/ts/reporte-periodo */
+    public function apiReportePeriodo(): mixed
+    {
+        $consulta = $this->obtenerConsultaReporte('report-period');
+        if (! is_array($consulta)) {
+            return $consulta;
+        }
+
+        $rawRangeKey = $this->request->getPost('periodo');
+        $rangeKey = is_scalar($rawRangeKey) ? trim((string) $rawRangeKey) : '';
+        $ranges = $this->periodosReporteDisponibles();
+        if (! isset($ranges[$rangeKey])) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'El período seleccionado no es válido.']], 422);
+        }
+
+        try {
+            $history = $this->consultarMesesEcoe(
+                (string) ($consulta['distribuidora']['nombre'] ?? ''),
+                $consulta['correlativo'],
+                (int) date('Y'),
+                $ranges[$rangeKey]['periodos']
+            );
+        } catch (Throwable $e) {
+            log_message('error', 'ECOE TS: reporte por período fallido. distribuidora={distribuidora}, referencia={referencia}, periodo={periodo}, mensaje={message}.', [
+                'distribuidora' => (string) ($consulta['distribuidora']['nombre'] ?? ''),
+                'referencia' => substr(hash('sha256', $consulta['correlativo']), 0, 12),
+                'periodo' => $rangeKey,
+                'message' => $e->getMessage(),
+            ]);
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'No fue posible consultar el período seleccionado.']], 503);
+        }
+
+        $tablesAvailable = count(array_filter($history['meses'], static fn (array $month): bool => ! empty($month['_tabla_disponible']))) === count($ranges[$rangeKey]['periodos']);
+        if (! $tablesAvailable || empty($history['hay_registros'])) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'No hay información completa disponible para este período.']], 422);
+        }
+
+        $months = [];
+        foreach ($history['meses'] as $month) {
+            $month['ahorro'] = (float) $month['beneficio_tarifa_social'] + abs((float) $month['aporte_inde']);
+            unset($month['_periodo_key'], $month['_mes_num'], $month['_tabla_disponible'], $month['_registro_encontrado'], $month['_precio']);
+            $months[] = $month;
+        }
+
+        return $this->encryptedJsonResponse([
+            'ok' => true,
+            'data' => [
+                'nis' => $consulta['correlativo'],
+                'distribuidora' => (string) ($consulta['distribuidora']['nombre'] ?? ''),
+                'periodo' => $rangeKey,
+                'meses' => $months,
+                'beneficio_tarifa_social_total' => array_sum(array_column($months, 'beneficio_tarifa_social')),
+                'aporte_total' => array_sum(array_map(static fn (array $month): float => abs((float) $month['aporte_inde']), $months)),
+                'ahorro_total' => array_sum(array_column($months, 'ahorro')),
+            ],
+        ]);
+    }
+
+    /**
      * POST api/ecoe/ts/consultar-nis
      * Body: distribuidora_id, correlativo
      */
     public function apiConsultarNis(): mixed
     {
-        $distribuidoraId = (int) $this->request->getPost('distribuidora_id');
-        $correlativo     = mb_substr(trim((string) $this->request->getPost('correlativo')), 0, 30);
-        $anio            = mb_substr(trim((string) $this->request->getPost('anio')), 0, 4);
+        $rawDistributorId = $this->request->getPost('distribuidora_id');
+        $rawCorrelativo = $this->request->getPost('correlativo');
+        $distribuidoraId = $this->normalizarDistribuidoraId($rawDistributorId);
+        $correlativo = $this->normalizarCorrelativo($rawCorrelativo);
 
-        if ($distribuidoraId <= 0 || $correlativo === '') {
-            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'Datos incompletos.']], 422);
+        log_message('debug', 'ECOE TS: solicitud recibida. distribuidora_id={distribuidora_id}, correlativo_referencia={referencia}, longitud_correlativo={longitud}.', [
+            'distribuidora_id' => $distribuidoraId ?? 0,
+            'referencia' => $correlativo !== null ? substr(hash('sha256', $correlativo), 0, 12) : 'invalida',
+            'longitud' => is_scalar($rawCorrelativo) ? strlen(trim((string) $rawCorrelativo)) : 0,
+        ]);
+
+        if ($distribuidoraId === null || $correlativo === null) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'El NIS/correlativo o la distribuidora no tiene un formato válido.']], 422);
         }
 
+        if (! $this->permiteConsultaPublica('lookup')) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'Demasiadas consultas. Espera un momento e inténtalo de nuevo.']], 429);
+        }
+
+        $distribuidora = $this->distribuidoraModel->find($distribuidoraId);
+        if (! $distribuidora || (int) ($distribuidora['status'] ?? 0) !== 1) {
+            log_message('warning', 'ECOE TS: distribuidora no encontrada/inactiva. distribuidora_id={distribuidora_id}.', [
+                'distribuidora_id' => $distribuidoraId,
+            ]);
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'Distribuidora no encontrada.']], 404);
+        }
+
+        $correlativoRef = substr(hash('sha256', $correlativo), 0, 12);
         $nis = $this->nisModel->findByCorrelativo($correlativo, $distribuidoraId);
+        log_message('debug', 'ECOE TS: resultado de base local ecoe_nis_base. distribuidora={distribuidora}, referencia={referencia}, encontrado_local={encontrado}.', [
+            'distribuidora' => (string) ($distribuidora['nombre'] ?? ''),
+            'referencia' => $correlativoRef,
+            'encontrado' => $nis !== null ? 'si' : 'no',
+        ]);
+
+        try {
+            $historial = $this->consultarMesesEcoe(
+                (string) ($distribuidora['nombre'] ?? ''),
+                $correlativo,
+                (int) date('Y')
+            );
+        } catch (Throwable $e) {
+            log_message('error', 'ECOE consulta mensual fallida para {distribuidora}/{referencia}: {message}', [
+                'distribuidora' => (string) ($distribuidora['nombre'] ?? ''),
+                'referencia' => $correlativoRef,
+                'message' => $e->getMessage(),
+            ]);
+
+            $errorData = [
+                'message' => 'No fue posible consultar el historial de consumo.',
+                'error_code' => 'ECOE_SQLSERVER_QUERY_FAILED',
+            ];
+
+            if (str_contains($e->getMessage(), 'no contiene tablas mensuales')) {
+                $errorData['message'] = 'La base de la distribuidora no contiene tablas mensuales de consumo configuradas.';
+                $errorData['error_code'] = 'ECOE_MONTHLY_TABLES_NOT_FOUND';
+            }
+
+            if (ENVIRONMENT !== 'production') {
+                $errorData['detail'] = $e->getMessage();
+                if (preg_match('/SQLSTATE:\s*([A-Z0-9]+)/i', $e->getMessage(), $matches) === 1) {
+                    $errorData['sqlstate'] = strtoupper($matches[1]);
+                }
+            }
+
+            return $this->encryptedJsonResponse([
+                'ok' => false,
+                'data' => $errorData,
+            ], 503);
+        }
+
+        $meses = $historial['meses'];
+        $hayRegistrosExternos = (bool) ($historial['hay_registros'] ?? false);
+        $hayDatosExternos = (bool) array_filter($meses, static fn (array $mes): bool =>
+            (float) $mes['consumo_kwh'] !== 0.0
+            || (float) $mes['costo_tarifa_plena'] !== 0.0
+            || (float) $mes['costo_tarifa_social'] !== 0.0
+            || (float) $mes['aporte_inde'] !== 0.0
+        );
+
+        log_message('debug', 'ECOE TS: resultado de validacion externa. distribuidora={distribuidora}, referencia={referencia}, encontrado_local={local}, registro_externo={registro}, datos_externos={datos}.', [
+            'distribuidora' => (string) ($distribuidora['nombre'] ?? ''),
+            'referencia' => $correlativoRef,
+            'local' => $nis !== null ? 'si' : 'no',
+            'registro' => $hayRegistrosExternos ? 'si' : 'no',
+            'datos' => $hayDatosExternos ? 'si' : 'no',
+        ]);
+
+        if (! $nis && ! $hayRegistrosExternos) {
+            log_message('notice', 'ECOE TS: correlativo no encontrado ni en base local ni en las particiones externas. distribuidora={distribuidora}, referencia={referencia}.', [
+                'distribuidora' => (string) ($distribuidora['nombre'] ?? ''),
+                'referencia' => $correlativoRef,
+            ]);
+
+            return $this->encryptedJsonResponse([
+                'ok' => false,
+                'data' => ['message' => 'El NIS o correlativo no fue encontrado.'],
+            ], 404);
+        }
+
+        $mesesConConsumo = array_values(array_filter($meses, static fn (array $mes): bool => (float) $mes['consumo_kwh'] > 0));
+        $consumoPromedio = $mesesConConsumo !== []
+            ? array_sum(array_column($mesesConConsumo, 'consumo_kwh')) / count($mesesConConsumo)
+            : (float) ($nis['consumo_kwh'] ?? 0);
+
+        $aplicaTarifaSocial = $consumoPromedio > 0.0 && $consumoPromedio <= 300.0;
+        $tarifasMes = $aplicaTarifaSocial
+            ? $this->tarifaMensualModel->getLatestQuarterRates($distribuidoraId)
+            : [];
+
+        if ($aplicaTarifaSocial && count($tarifasMes) !== 3) {
+            return $this->encryptedJsonResponse([
+                'ok' => false,
+                'data' => [
+                    'message' => 'No hay un trimestre completo de tarifas configurado para esta distribuidora.',
+                    'error_code' => 'ECOE_TARIFF_RATES_NOT_FOUND',
+                ],
+            ], 503);
+        }
+
+        foreach ($meses as $monthPosition => &$mes) {
+            $consumoMes = (float) $mes['consumo_kwh'];
+
+            if ($aplicaTarifaSocial && $consumoMes > 0.0) {
+                $tarifas = $tarifasMes[$monthPosition + 1];
+                $costoPlena = $consumoMes * $tarifas['plena'];
+                $costoSocial = $consumoMes * $tarifas['social'];
+
+                $mes['costo_tarifa_plena'] = round($costoPlena, 2);
+                $mes['costo_tarifa_no_social'] = round($costoPlena, 2);
+                $mes['costo_tarifa_social'] = round($costoSocial, 2);
+                $mes['beneficio_tarifa_social'] = round(max(0.0, $costoPlena - $costoSocial), 2);
+            } elseif (! $aplicaTarifaSocial) {
+                $mes['beneficio_tarifa_social'] = 0.0;
+            }
+
+            $mes['ahorro'] = $mes['beneficio_tarifa_social'] + abs((float) $mes['aporte_inde']);
+            unset($mes['_mes_num']);
+        }
+        unset($mes);
+
+        $aporteTotal = array_sum(array_map(static fn (array $mes): float => abs((float) $mes['aporte_inde']), $meses));
+        $beneficioTarifaSocialTotal = array_sum(array_column($meses, 'beneficio_tarifa_social'));
+        $costoPlenaTotal = array_sum(array_column($meses, 'costo_tarifa_plena'));
+        $costoSocialTotal = array_sum(array_column($meses, 'costo_tarifa_social'));
+        $costoNoSocialTotal = array_sum(array_column($meses, 'costo_tarifa_no_social'));
+        $ahorroTotal = array_sum(array_column($meses, 'ahorro'));
+
+        log_message('debug', 'ECOE TS: totales normalizados para JSON. referencia={referencia}, beneficio_tarifa_social_total={beneficio}, ahorro_total={ahorro}.', [
+            'referencia' => $correlativoRef,
+            'beneficio' => $beneficioTarifaSocialTotal,
+            'ahorro' => $ahorroTotal,
+        ]);
+        $tieneAporte = $aporteTotal > 0.0 || ($consumoPromedio > 0.0 && $consumoPromedio < 100.0);
+
         $data = [
-            'encontrado' => $nis !== null,
+            'nis' => $correlativo,
+            'nombre_usuario' => (string) ($nis['nombre_usuario'] ?? ''),
+            'activ_economica' => (string) ($nis['activ_economica'] ?? ''),
+            'tiene_aporte' => $tieneAporte,
+            'rango_tarifa' => $consumoPromedio > 300.0 ? 'no_social' : ($tieneAporte ? 'aporte_social' : 'social_sin_aporte'),
+            'consumo_promedio' => (float) $consumoPromedio,
+            'precio_kwh_social' => (float) $historial['precio_kwh_social'],
+            'beneficio_tarifa_social_total' => (float) $beneficioTarifaSocialTotal,
+            'ahorro_total' => (float) $ahorroTotal,
+            'costo_tarifa_plena_total' => (float) $costoPlenaTotal,
+            'costo_tarifa_social_total' => (float) $costoSocialTotal,
+            'costo_tarifa_no_social_total' => (float) $costoNoSocialTotal,
+            'costo_social_total' => (float) $costoSocialTotal,
+            'costo_no_social_total' => (float) $costoNoSocialTotal,
+            'meses' => $meses,
         ];
 
-        if ($nis) {
-            $bloqueado = ((float) $nis['consumo_kwh']) >= 100.0;
-            $data['bloqueado'] = $bloqueado;
-            $data['nombre_usuario'] = esc($nis['nombre_usuario']);
-            $data['activ_economica'] = esc($nis['activ_economica']);
-            $data['consumo_kwh'] = (float) $nis['consumo_kwh'];
-        }
-
-        if (! ($nis && ((float) $nis['consumo_kwh']) >= 100.0)) {
-            $aniosHistorial = $this->consultarAniosHistorialEcoe($correlativo);
-            $historial = $this->consultarHistorialEcoe($correlativo, $anio !== '' ? $anio : null);
-            $data['historial'] = $historial;
-            $data['historial_encontrado'] = ($historial['ok'] ?? false) && ($historial['encontrado'] ?? false);
-            $data['historial_pdf_url'] = ($historial['ok'] ?? false) && ($historial['encontrado'] ?? false) ? ($historial['pdf_download_url'] ?? null) : null;
-            $data['historial_years'] = $aniosHistorial['anios'] ?? [];
-        }
-
-        return $this->encryptedJsonResponse([
-            'ok'   => true,
-            'data' => $data,
-        ]);
+        return $this->encryptedJsonResponse(['ok' => true, 'data' => $data]);
     }
 
     /**
@@ -1798,15 +2852,19 @@ HTML;
         $direccion       = mb_substr(trim((string) $this->request->getPost('direccion')), 0, 255);
         $dpi             = preg_replace('/\D/', '', (string) $this->request->getPost('dpi') ?? '');
         $telefono        = mb_substr(preg_replace('/\D/', '', (string) $this->request->getPost('telefono') ?? ''), 0, 20);
-        $distribuidoraId = (int) $this->request->getPost('distribuidora_id');
-        $correlativo     = mb_substr(trim((string) $this->request->getPost('correlativo')), 0, 30);
+        $distribuidoraId = $this->normalizarDistribuidoraId($this->request->getPost('distribuidora_id'));
+        $correlativo = $this->normalizarCorrelativo($this->request->getPost('correlativo'));
 
         // ── Validaciones básicas ──────────────────────────────────────────────
-        if ($nombre === '' || $direccion === '' || strlen($dpi) < 13 || $distribuidoraId <= 0 || $correlativo === '') {
+        if ($nombre === '' || $direccion === '' || strlen($dpi) < 13 || $distribuidoraId === null || $correlativo === null) {
             return $this->encryptedJsonResponse([
                 'ok'   => false,
                 'data' => ['message' => 'Todos los campos obligatorios deben estar completos.'],
             ], 422);
+        }
+
+        if (! $this->permiteConsultaPublica('create-ticket')) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.']], 429);
         }
 
         // ── Verificar que el NIS existe y no está bloqueado ───────────────────
@@ -1940,11 +2998,16 @@ HTML;
      */
     public function descargarHistorialPdf(): mixed
     {
-        $correlativo = mb_substr(trim((string) $this->request->getGet('correlativo')), 0, 30);
-        $anio = mb_substr(trim((string) $this->request->getGet('anio')), 0, 4);
+        $correlativo = $this->normalizarCorrelativo($this->request->getGet('correlativo'));
+        $rawYear = $this->request->getGet('anio');
+        $anio = is_scalar($rawYear) ? trim((string) $rawYear) : '';
 
-        if ($correlativo === '') {
-            return $this->response->setStatusCode(422)->setBody('El correlativo es obligatorio.');
+        if ($correlativo === null || ($anio !== '' && (preg_match('/\A(?:19|20)[0-9]{2}\z/', $anio) !== 1 || (int) $anio > (int) date('Y')))) {
+            return $this->response->setStatusCode(422)->setBody('El correlativo o año no tiene un formato válido.');
+        }
+
+        if (! $this->permiteConsultaPublica('history-pdf')) {
+            return $this->response->setStatusCode(429)->setHeader('Retry-After', (string) self::ECOE_RATE_LIMIT_WINDOW_SECONDS)->setBody('Demasiadas consultas. Inténtalo de nuevo más tarde.');
         }
 
         $historial = $this->consultarHistorialEcoe($correlativo, $anio !== '' ? $anio : null);
@@ -2028,13 +3091,18 @@ HTML;
      */
     public function apiRastrear(): mixed
     {
-        $valor = mb_substr(trim((string) $this->request->getPost('valor')), 0, 50);
+        $rawValue = $this->request->getPost('valor');
+        $valor = is_scalar($rawValue) ? strtoupper(trim((string) $rawValue)) : '';
 
-        if ($valor === '') {
+        if (strlen($valor) > 50 || preg_match('/\A(?:[0-9]{13}|TS-[0-9]{5}-[0-9]{7})\z/', $valor) !== 1) {
             return $this->encryptedJsonResponse([
                 'ok'   => false,
-                'data' => ['message' => 'Ingresa un DPI o código de referencia.'],
+                'data' => ['message' => 'Ingresa un DPI o código de referencia con formato válido.'],
             ], 422);
+        }
+
+        if (! $this->permiteConsultaPublica('ticket-tracking')) {
+            return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'Demasiadas consultas. Espera un momento e inténtalo de nuevo.']], 429);
         }
 
         $ticket = $this->ticketModel->buscarPorRastreo($valor);

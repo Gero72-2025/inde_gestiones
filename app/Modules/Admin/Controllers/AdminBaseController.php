@@ -70,6 +70,7 @@ abstract class AdminBaseController extends BaseController
             ['label' => 'Roles y Permisos', 'icon' => 'bi-shield-lock', 'url' => site_url('admin/roles'), 'permission' => 'admin.roles.view'],
             ['label' => 'Portal Publico', 'icon' => 'bi-globe2', 'url' => site_url('admin/portal-publico'), 'permission' => 'admin.portal_publico.view'],
             ['label' => 'Idiomas', 'icon' => 'bi-translate', 'url' => site_url('admin/idiomas'), 'permission' => 'admin.idiomas.view'],
+            ['label' => 'Consejos de ahorro', 'icon' => 'bi-lightbulb', 'url' => site_url('admin/consejos'), 'permission' => 'admin.consejos.view'],
             ['label' => 'Migraciones', 'icon' => 'bi-database-gear', 'url' => site_url('admin/migraciones'), 'permission' => 'admin.migrations.view'],
             ['label' => 'Logs', 'icon' => 'bi-journal-text', 'url' => site_url('admin/logs'), 'permission' => 'admin.logs.view'],
             ['label' => 'Carga masiva', 'icon' => 'bi-cloud-upload', 'url' => site_url('admin/uploads'), 'permission' => 'admin.uploads.view'],

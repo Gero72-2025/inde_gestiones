@@ -64,12 +64,12 @@
             <i class="bi bi-lightning-charge-fill text-warning fs-4"></i>
         </div>
         <div>
-            <h2 class="h4 mb-0 text-white fw-bold">Registro de Cortes ETCEE</h2>
+            <h2 class="h4 mb-0 text-white fw-bold">Registro de mantenimientos ETCEE</h2>
             <small class="text-white-50">Gestión de interrupciones y cortes de energía eléctrica</small>
         </div>
     </div>
     <button class="btn btn-light shadow-sm px-4 fw-semibold" id="newEventBtn">
-        <i class="bi bi-plus-circle-fill me-2 text-primary"></i><span class="text-primary">Nuevo corte</span>
+        <i class="bi bi-plus-circle-fill me-2 text-primary"></i><span class="text-primary">Nuevo mantenimiento</span>
     </button>
 </div>
 
@@ -132,10 +132,11 @@
 <div class="modal fade" id="corteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
-            <form id="corteForm">
+            <!-- Agregamos d-flex flex-column h-100 para no romper el layout de Bootstrap -->
+            <form id="corteForm" class="d-flex flex-column h-100">
                 <input type="hidden" id="eventId" value="">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="corteModalTitle"><i class="bi bi-lightning-charge me-2"></i>Nuevo corte</h5>
+                    <h5 class="modal-title" id="corteModalTitle"><i class="bi bi-lightning-charge me-2"></i>Nuevo mantenimiento</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
@@ -174,19 +175,19 @@
                         <div class="col-12"><p class="modal-section-divider"><i class="bi bi-geo-alt me-1"></i>Ubicaciones afectadas</p></div>
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold"><i class="bi bi-map me-1 text-primary"></i>Departamentos <span class="text-secondary fw-normal">(múltiple)</span></label>
-                            <select class="form-select" id="departmentIdsInput" multiple size="8"></select>
+                            <select class="form-select" id="departmentIdsInput" multiple size="5"></select>
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold"><i class="bi bi-pin-map me-1 text-primary"></i>Municipios <span class="text-secondary fw-normal">(múltiple)</span></label>
-                            <select class="form-select" id="municipalityIdsInput" multiple size="8"></select>
+                            <select class="form-select" id="municipalityIdsInput" multiple size="5"></select>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-0 d-flex justify-content-between">
-                    <button type="button" class="btn btn-outline-danger d-none" id="deleteEventBtn">
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-danger d-none me-auto" id="deleteEventBtn">
                         <i class="bi bi-trash me-1"></i>Eliminar
                     </button>
-                    <div class="ms-auto d-flex gap-2">
+                    <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Guardar</button>
                     </div>
@@ -400,7 +401,7 @@ function clearForm() {
 
 function openNewModal(prefill = {}) {
     clearForm();
-    document.getElementById('corteModalTitle').textContent = 'Nuevo corte';
+    document.getElementById('corteModalTitle').textContent = 'Nuevo mantenimiento';
     if (prefill.start) document.getElementById('inicioInput').value = isoToInput(prefill.start);
     if (prefill.end) document.getElementById('finInput').value = isoToInput(prefill.end);
     const modal = getCorteModal();

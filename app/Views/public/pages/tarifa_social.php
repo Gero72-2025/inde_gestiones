@@ -8,6 +8,7 @@
  *  $ajaxCipherKey   – clave AES del .env (pasada desde el controlador)
  */
 $distribuidoras = (array) ($distribuidoras ?? []);
+$consejosAhorro = (array) ($consejosAhorro ?? []);
 $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
 ?>
 
@@ -254,6 +255,139 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
     margin-top: 16px;
 }
 
+.as-beneficio-hero {
+    background: linear-gradient(135deg, rgba(0,143,57,0.12), rgba(0,179,71,0.05));
+    border-radius: 20px;
+    padding: 28px 24px;
+    text-align: center;
+    margin: 18px 0 24px;
+}
+
+.as-beneficio-hero-label {
+    color: var(--azul);
+    font-size: 1.35rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.as-beneficio-hero-val {
+    color: var(--verde);
+    font-size: 2.8rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 8px;
+}
+
+.as-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--fondo);
+    margin: 22px 0 20px;
+    flex-wrap: wrap;
+}
+
+.as-tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--texto-suave);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.82em;
+    font-weight: 700;
+    margin-bottom: -2px;
+    padding: 10px 16px;
+}
+
+.as-tab-btn.active {
+    border-bottom-color: var(--verde);
+    color: var(--azul);
+}
+
+.as-tab-content { display: none; }
+.as-tab-content.active { display: block; }
+
+.as-formula-final-row,
+.as-stats-3,
+.as-resumen-final {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.as-formula-final-row { justify-content: center; margin: 4px 0 20px; }
+
+.as-formula-box,
+.as-stat-box {
+    background: var(--fondo);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+
+.as-formula-box { min-width: 170px; }
+.as-stat-box { flex: 1; min-width: 140px; text-align: left; }
+
+.as-formula-label,
+.as-stat-label,
+.as-resumen-final-total .label {
+    color: var(--texto-suave);
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.as-formula-val,
+.as-stat-val,
+.as-resumen-final-total .val {
+    color: var(--azul);
+    font-size: 1.35em;
+    font-weight: 800;
+    margin-top: 4px;
+}
+
+.as-formula-val.verde,
+.as-stat-val.verde,
+.as-resumen-final-total .val { color: var(--verde); }
+
+.as-formula-op,
+.as-stats-op { color: var(--verde); font-size: 1.5em; font-weight: 800; }
+
+.as-formula-final,
+.as-resumen-final-total {
+    background: linear-gradient(135deg, rgba(0,143,57,0.1), rgba(0,179,71,0.04));
+    border: 2px solid var(--verde);
+    border-radius: 12px;
+    padding: 16px 22px;
+    text-align: center;
+}
+
+.as-formula-final .as-formula-val { color: var(--verde); font-size: 1.8rem; }
+.as-resumen-final { justify-content: space-between; margin-top: 22px; }
+.as-resumen-final-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.as-detalle-mensual { margin-top: 22px; overflow-x: auto; }
+.as-detalle-tabla { border-collapse: collapse; font-size: 0.84em; min-width: 650px; width: 100%; }
+.as-detalle-tabla th,
+.as-detalle-tabla td { border-bottom: 1px solid var(--fondo); padding: 8px 10px; text-align: left; }
+.as-detalle-tabla th { color: var(--texto-suave); font-size: 0.84em; font-weight: 600; }
+.as-detalle-tabla .num { text-align: right; }
+
+.as-legend { color: var(--texto-suave); display: flex; flex-wrap: wrap; font-size: 0.82em; gap: 18px; margin: 20px 0 10px; }
+.as-legend span { align-items: center; display: flex; gap: 6px; }
+.as-legend i { border-radius: 2px; display: inline-block; height: 10px; width: 10px; }
+.as-chart-box { height: 300px; position: relative; width: 100%; }
+.as-chart-box.horizontal { height: 380px; }
+
+@media (max-width: 600px) {
+    .as-beneficio-hero-val { font-size: 2.2rem; }
+    .as-formula-final-row { align-items: stretch; flex-direction: column; }
+    .as-formula-op { line-height: 1; }
+    .as-resumen-final { align-items: stretch; flex-direction: column; }
+}
+
 .as-nombre {
     color: var(--azul);
     font-weight: 700;
@@ -401,10 +535,32 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
     margin-bottom: 14px;
 }
 
-.as-tips-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 14px;
+.as-tips-carousel {
+    max-width: 728px;
+    margin: 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--fondo);
+}
+
+.as-tips-carousel .carousel-item {
+    min-height: 220px;
+    text-align: center;
+}
+
+.as-tip-image {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    display: block;
+}
+
+.as-tips-carousel .as-tip-card {
+    min-height: 72px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    text-align: center;
 }
 
 .as-tip-card {
@@ -423,6 +579,63 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
     color: var(--verde);
     font-size: 1.1em;
     flex-shrink: 0;
+}
+
+.ts-report-modal[hidden] { display: none; }
+.ts-report-modal {
+    align-items: center;
+    background: rgba(8, 24, 39, 0.68);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 16px;
+    position: fixed;
+    z-index: 1080;
+}
+.ts-report-backdrop { inset: 0; position: absolute; }
+.ts-report-dialog {
+    background: #fff;
+    border-top: 5px solid var(--verde);
+    border-radius: 12px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+    max-height: min(760px, calc(100vh - 32px));
+    max-width: 680px;
+    overflow-y: auto;
+    padding: 24px;
+    position: relative;
+    width: 100%;
+    z-index: 1;
+}
+.ts-report-header,
+.ts-report-footer { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
+.ts-report-header { margin-bottom: 14px; }
+.ts-report-header h2 { color: var(--azul); font-size: 1.15rem; font-weight: 800; margin: 0; }
+.ts-report-close { background: transparent; border: 0; color: var(--texto-suave); cursor: pointer; font-size: 1.6rem; line-height: 1; padding: 4px 8px; }
+.ts-report-status { color: var(--texto-suave); font-size: 0.88rem; min-height: 24px; }
+.ts-report-options { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 14px 0 20px; }
+.ts-report-option {
+    background: #f5f8fa;
+    border: 1px solid #d5e0e5;
+    border-radius: 8px;
+    color: var(--texto);
+    cursor: pointer;
+    min-height: 72px;
+    padding: 12px 14px;
+    text-align: left;
+}
+.ts-report-option strong,
+.ts-report-option span { display: block; }
+.ts-report-option strong { color: var(--azul); font-size: 0.88rem; }
+.ts-report-option span { color: var(--texto-suave); font-size: 0.76rem; margin-top: 4px; }
+.ts-report-option[aria-checked="true"] { background: #e8f5ed; border-color: var(--verde); box-shadow: inset 0 0 0 1px var(--verde); }
+.ts-report-option:disabled { cursor: not-allowed; opacity: 0.52; }
+.ts-report-footer { justify-content: flex-end; }
+.ts-report-generate { background: var(--verde); border: 0; border-radius: 7px; color: #fff; cursor: pointer; font: inherit; font-size: 0.9rem; font-weight: 700; padding: 10px 18px; }
+.ts-report-generate:disabled { cursor: not-allowed; opacity: 0.5; }
+.ts-report-cancel { background: transparent; border: 1px solid #aebdc5; border-radius: 7px; color: var(--texto); cursor: pointer; font: inherit; font-size: 0.9rem; padding: 9px 15px; }
+@media (max-width: 520px) {
+    .ts-report-dialog { padding: 18px; }
+    .ts-report-options { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 900px) {
@@ -503,14 +716,46 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
 
                 <div class="as-tips">
                     <p class="as-tips-titulo"><?= esc(__('tarifaSocial.tips.title', 'Consejos de Ahorro')) ?></p>
-                    <div class="as-tips-grid">
-                        <div class="as-tip-card"><i class="bi bi-lightbulb"></i><span><?= esc(__('tarifaSocial.tips.item1', 'Usa focos ahorradores o LED en toda tu vivienda.')) ?></span></div>
-                        <div class="as-tip-card"><i class="bi bi-plug"></i><span><?= esc(__('tarifaSocial.tips.item2', 'Desconecta aparatos electr\u00f3nicos que no est\u00e9s usando.')) ?></span></div>
-                        <div class="as-tip-card"><i class="bi bi-sun"></i><span><?= esc(__('tarifaSocial.tips.item3', 'Aprovecha la luz natural durante el d\u00eda.')) ?></span></div>
-                        <div class="as-tip-card"><i class="bi bi-thermometer-half"></i><span><?= esc(__('tarifaSocial.tips.item4', 'Evita el uso prolongado de planchas y calentadores.')) ?></span></div>
+                    <div id="consejosCarousel" class="carousel slide as-tips-carousel" data-bs-ride="carousel">
+                        <div class="carousel-inner">
+                        <?php foreach ($consejosAhorro as $consejoIndex => $consejo): ?>
+                            <div class="carousel-item <?= $consejoIndex === 0 ? 'active' : '' ?>">
+                                <?php if (! empty($consejo['imagen'])): ?>
+                                    <img class="as-tip-image" src="<?= esc(base_url((string) $consejo['imagen'])) ?>" alt="<?= esc(__((string) ($consejo['clave'] ?? ''), (string) ($consejo['texto_base'] ?? ''))) ?>">
+                                <?php endif; ?>
+                                <!-- <div class="as-tip-card">
+                                    <span><?= esc(__((string) ($consejo['clave'] ?? ''), (string) ($consejo['texto_base'] ?? ''))) ?></span>
+                                </div> -->
+                            </div>
+                        <?php endforeach; ?>
+                        </div>
+                        <?php if (count($consejosAhorro) > 1): ?>
+                            <button class="carousel-control-prev" type="button" data-bs-target="#consejosCarousel" data-bs-slide="prev" aria-label="Anterior">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#consejosCarousel" data-bs-slide="next" aria-label="Siguiente">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<div class="ts-report-modal" id="tsReportModal" hidden aria-hidden="true">
+    <div class="ts-report-backdrop" data-report-close></div>
+    <section class="ts-report-dialog" role="dialog" aria-modal="true" aria-labelledby="tsReportTitle" tabindex="-1">
+        <div class="ts-report-header">
+            <h2 id="tsReportTitle"><?= esc(__('tarifaSocial.report.title', 'Descargar reporte PDF')) ?></h2>
+            <button class="ts-report-close" type="button" data-report-close aria-label="<?= esc(__('tarifaSocial.report.close', 'Cerrar')) ?>">&times;</button>
+        </div>
+        <p class="ts-report-status" id="tsReportStatus" role="status" aria-live="polite"></p>
+        <div class="ts-report-options" id="tsReportOptions" role="radiogroup" aria-label="<?= esc(__('tarifaSocial.report.chooseRange', 'Selecciona un período')) ?>"></div>
+        <div class="ts-report-footer">
+            <button class="ts-report-cancel" id="tsReportCancel" type="button"><?= esc(__('tarifaSocial.report.cancel', 'Cancelar')) ?></button>
+            <button class="ts-report-generate" id="tsGenerateReport" type="button" disabled><?= esc(__('tarifaSocial.report.generate', 'Generar reporte')) ?></button>
+        </div>
+    </section>
 </div>

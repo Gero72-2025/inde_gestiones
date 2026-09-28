@@ -1537,7 +1537,9 @@ foreach ($distribuidoras as $dist) {
     });
     */
 
-    chatRestart.addEventListener('click', startFlow);
+    if (chatRestart) {
+        chatRestart.addEventListener('click', startFlow);
+    }
 
     // Iniciar
     startFlow();

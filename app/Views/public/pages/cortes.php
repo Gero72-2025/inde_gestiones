@@ -4,7 +4,7 @@
 <style>
 /* ── ETCEE Cortes Público – UI Enhancement ───────────────────── */
 .cortes-hero {
-    background: linear-gradient(135deg, #1a56db 0%, #0e3c8a 100%);
+    background: #181630;
     border-radius: 1rem;
     padding: 1.75rem 2rem;
     margin-bottom: 1.5rem;

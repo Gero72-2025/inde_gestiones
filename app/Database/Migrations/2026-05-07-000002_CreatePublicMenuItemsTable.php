@@ -123,7 +123,7 @@ class CreatePublicMenuItemsTable extends Migration
                 'updated_at' => $now,
             ],
             [
-                'title' => 'Cortes de Energia',
+                'title' => 'Mantenimientos Programados',
                 'title_en' => 'Power Outages',
                 'description' => 'Listado visual de cortes activos o programados.',
                 'description_en' => 'Visual list of active or planned outages.',

@@ -85,6 +85,8 @@ class Filters extends BaseFilters
             // 'honeypot',
             'csrf' => ['except' => [
                 'api/ecoe/ts/consultar-nis',
+                'api/ecoe/ts/reporte-disponibilidad',
+                'api/ecoe/ts/reporte-periodo',
                 'api/ecoe/ts/rastrear',
                 'api/ecoe/ts/crear-ticket',
             ]],

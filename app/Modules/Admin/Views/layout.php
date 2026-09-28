@@ -4,6 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel Administrativo INDE</title>
+    <link rel="icon" type="image/x-icon" href="<?= base_url('assets/img/cropped-favicon-32x32.png') ?>">
+
+    <!-- O si prefieres usar un PNG moderno -->
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('assets/img/cropped-favicon-32x32.png') ?>">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>

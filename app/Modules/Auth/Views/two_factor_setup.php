@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Configurar 2FA | INDE</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/css/century-gothic.css') ?>" rel="stylesheet">
     <style>
         body { background: linear-gradient(145deg, #fff9ec 0%, #f7f9fc 55%, #d9e7ff 100%); min-height: 100vh; }
         .setup-card { border: 0; border-radius: 1.5rem; box-shadow: 0 25px 60px rgba(19, 53, 83, 0.16); }

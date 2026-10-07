@@ -11,6 +11,7 @@ class CortesModel extends BaseModuleModel
         'fecha_inicio',
         'fecha_fin',
         'estado',
+        'estado_mantenimiento_id',
         'color',
         'created_by',
         'updated_by',
@@ -52,11 +53,21 @@ class CortesModel extends BaseModuleModel
             return [];
         }
 
+        $hasMaintenanceStates = $this->db->tableExists('etcee_estados_mantenimiento');
+        $select = 'c.id, c.titulo, c.descripcion, c.estado, c.fecha_inicio, c.fecha_fin';
+        $select .= $hasMaintenanceStates
+            ? ', COALESCE(em.color, c.color, "#1f6feb") AS color, em.id AS estado_mantenimiento_id, em.nombre AS estado_mantenimiento_nombre, em.clave AS estado_mantenimiento_clave, em.color AS estado_mantenimiento_color'
+            : ', c.color, NULL AS estado_mantenimiento_id, NULL AS estado_mantenimiento_nombre, NULL AS estado_mantenimiento_clave, NULL AS estado_mantenimiento_color';
+
         $builder = $this->db->table('etcee_cortes c')
-            ->select('c.id, c.titulo, c.descripcion, c.estado, c.color, c.fecha_inicio, c.fecha_fin')
+            ->select($select)
             ->join('etcee_cortes_ubicaciones cu', 'cu.corte_id = c.id', 'inner')
             ->groupBy('c.id')
             ->orderBy('c.fecha_inicio', 'ASC');
+
+        if ($hasMaintenanceStates) {
+            $builder->join('etcee_estados_mantenimiento em', 'em.id = c.estado_mantenimiento_id', 'left');
+        }
 
         if (($departamentoId ?? 0) > 0) {
             $builder->where('cu.departamento_id', (int) $departamentoId);
@@ -87,6 +98,10 @@ class CortesModel extends BaseModuleModel
                 'extendedProps' => [
                     'descripcion' => (string) ($event['descripcion'] ?? ''),
                     'estado' => (string) ($event['estado'] ?? 'programado'),
+                    'estado_mantenimiento_id' => (int) ($event['estado_mantenimiento_id'] ?? 0),
+                    'estado_mantenimiento_nombre' => (string) ($event['estado_mantenimiento_nombre'] ?? ''),
+                    'estado_mantenimiento_clave' => (string) ($event['estado_mantenimiento_clave'] ?? ''),
+                    'estado_mantenimiento_color' => (string) ($event['estado_mantenimiento_color'] ?? ''),
                     'locations' => $locationsByEvent[$id] ?? [],
                 ],
             ];
@@ -95,7 +110,14 @@ class CortesModel extends BaseModuleModel
 
     public function findEvent(int $id): ?array
     {
-        $event = $this->where('id', $id)->first();
+        $hasMaintenanceStates = $this->db->tableExists('etcee_estados_mantenimiento');
+        $builder = $this->db->table('etcee_cortes c')->where('c.id', $id);
+        $select = 'c.*';
+        if ($hasMaintenanceStates) {
+            $builder->join('etcee_estados_mantenimiento em', 'em.id = c.estado_mantenimiento_id', 'left');
+            $select .= ', em.nombre AS estado_mantenimiento_nombre, em.clave AS estado_mantenimiento_clave, em.color AS estado_mantenimiento_color';
+        }
+        $event = $builder->select($select)->get()->getRowArray();
 
         if (! is_array($event)) {
             return null;
@@ -147,6 +169,68 @@ class CortesModel extends BaseModuleModel
         return array_values($locations);
     }
 
+    public function resolveImportedLocations(array $departmentReferences, array $municipalityReferences): array
+    {
+        if (! $this->db->tableExists('cat_departamentos') || ! $this->db->tableExists('cat_municipios')) {
+            throw new \InvalidArgumentException('Los catálogos de departamentos y municipios no están disponibles.');
+        }
+
+        $departmentIds = [];
+        foreach ($departmentReferences as $reference) {
+            $reference = trim((string) $reference);
+            if ($reference === '') {
+                continue;
+            }
+
+            $builder = $this->db->table('cat_departamentos')->select('id');
+            if (ctype_digit($reference)) {
+                $builder->where('id', (int) $reference);
+            } else {
+                $builder->where('nombre', $reference);
+            }
+            $matches = $builder->get()->getResultArray();
+
+            if (count($matches) !== 1) {
+                throw new \InvalidArgumentException('El departamento "' . $reference . '" no existe o es ambiguo.');
+            }
+
+            $departmentIds[(int) $matches[0]['id']] = (int) $matches[0]['id'];
+        }
+
+        $municipalityIds = [];
+        foreach ($municipalityReferences as $reference) {
+            $reference = trim((string) $reference);
+            if ($reference === '') {
+                continue;
+            }
+
+            $builder = $this->db->table('cat_municipios')->select('id, departamento_id');
+            if (ctype_digit($reference)) {
+                $builder->where('id', (int) $reference);
+            } else {
+                $builder->where('nombre', $reference);
+            }
+            if ($departmentIds !== []) {
+                $builder->whereIn('departamento_id', array_values($departmentIds));
+            }
+            $matches = $builder->get()->getResultArray();
+
+            if (count($matches) !== 1) {
+                throw new \InvalidArgumentException('El municipio "' . $reference . '" no existe dentro de los departamentos indicados o es ambiguo.');
+            }
+
+            $municipalityIds[(int) $matches[0]['id']] = (int) $matches[0]['id'];
+            $parentId = (int) $matches[0]['departamento_id'];
+            $departmentIds[$parentId] = $parentId;
+        }
+
+        if ($departmentIds === []) {
+            throw new \InvalidArgumentException('Indica al menos un departamento o municipio válido.');
+        }
+
+        return $this->resolveLocations(array_values($departmentIds), array_values($municipalityIds));
+    }
+
     public function saveEvent(?int $id, array $payload, array $locations): int
     {
         $this->db->transStart();
@@ -174,6 +258,45 @@ class CortesModel extends BaseModuleModel
         }
 
         return $id;
+    }
+
+    public function insertEventsAtomically(array $rows): int
+    {
+        $this->db->transBegin();
+
+        try {
+            foreach ($rows as $row) {
+                $this->insert((array) ($row['event'] ?? []));
+                $eventId = (int) $this->getInsertID();
+
+                if ($eventId <= 0) {
+                    throw new \RuntimeException('No fue posible crear uno de los mantenimientos importados.');
+                }
+
+                foreach ((array) ($row['locations'] ?? []) as $location) {
+                    $inserted = $this->db->table('etcee_cortes_ubicaciones')->insert([
+                        'corte_id' => $eventId,
+                        'departamento_id' => (int) $location['departamento_id'],
+                        'municipio_id' => $location['municipio_id'] !== null ? (int) $location['municipio_id'] : null,
+                    ]);
+
+                    if (! $inserted) {
+                        throw new \RuntimeException('No fue posible guardar una de las ubicaciones importadas.');
+                    }
+                }
+            }
+
+            if (! $this->db->transStatus()) {
+                throw new \RuntimeException('La transacción de importación no pudo completarse.');
+            }
+
+            $this->db->transCommit();
+
+            return count($rows);
+        } catch (\Throwable $exception) {
+            $this->db->transRollback();
+            throw $exception;
+        }
     }
 
     public function deleteEvent(int $id): bool

@@ -4,17 +4,18 @@
         detailModal: null,
     };
 
-    function formatDate(value) {
+    function formatScheduleDate(value) {
         if (!value) return '';
-        const date = new Date(String(value).replace(' ', 'T'));
+        const date = value instanceof Date ? value : new Date(String(value).replace(' ', 'T'));
         if (Number.isNaN(date.getTime())) return String(value);
-        return date.toLocaleString('es-GT', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
+        return date.toLocaleDateString('es-GT', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function formatScheduleTime(value) {
+        if (!value) return '';
+        const date = value instanceof Date ? value : new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', hour12: true });
     }
 
     function statusColor(estado) {
@@ -33,7 +34,8 @@
             if (id <= 0) return;
 
             const key = id;
-            const loc = [row.departamento || '', row.municipio || ''].filter(Boolean).join(' / ');
+            const departamento = String(row.departamento || '').trim();
+            const municipio = String(row.municipio || '').trim();
 
             if (!grouped.has(key)) {
                 grouped.set(key, {
@@ -41,11 +43,20 @@
                     title: row.motivo || (window.PortalConfig?.i18n?.cortes?.eventDefaultTitle || 'Corte de energia'),
                     start: String(row.fecha_inicio || '').replace(' ', 'T'),
                     end: String(row.fecha_fin || '').replace(' ', 'T'),
-                    color: statusColor(row.estado),
+                    color: /^#[0-9a-f]{6}$/i.test(String(row.estado_mantenimiento_color || ''))
+                        ? row.estado_mantenimiento_color
+                        : statusColor(row.estado),
                     extendedProps: {
                         estado: row.estado || 'programado',
+                        estadoMantenimiento: {
+                            id: Number(row.estado_mantenimiento_id || 0),
+                            nombre: String(row.estado_mantenimiento_nombre || ''),
+                            clave: String(row.estado_mantenimiento_clave || ''),
+                            color: String(row.estado_mantenimiento_color || ''),
+                        },
                         descripcion: String(row.descripcion || '').trim(),
-                        locations: [],
+                        departamentos: [],
+                        municipios: [],
                     },
                 });
             }
@@ -54,8 +65,11 @@
             if (!event.extendedProps.descripcion && row.descripcion) {
                 event.extendedProps.descripcion = String(row.descripcion).trim();
             }
-            if (loc && !event.extendedProps.locations.includes(loc)) {
-                event.extendedProps.locations.push(loc);
+            if (departamento && !event.extendedProps.departamentos.includes(departamento)) {
+                event.extendedProps.departamentos.push(departamento);
+            }
+            if (municipio && !event.extendedProps.municipios.includes(municipio)) {
+                event.extendedProps.municipios.push(municipio);
             }
         });
 
@@ -71,24 +85,32 @@
 
     function renderEventDetail(event) {
         const props = event.extendedProps || {};
-        const locations = Array.isArray(props.locations) ? props.locations : [];
         const estado = String(props.estado || 'programado').toLowerCase();
         const cfg = statusConfig[estado] || statusConfig.programado;
+        const maintenanceState = props.estadoMantenimiento || {};
+        const stateColor = /^#[0-9a-f]{6}$/i.test(maintenanceState.color || '') ? maintenanceState.color : cfg.color;
+        const stateKey = String(maintenanceState.clave || ({ programado: 'P', activo: 'A', finalizado: 'FP', cancelado: 'C' }[estado] || '')).toUpperCase();
+        const stateName = maintenanceState.nombre || cfg.label.replace(/^\S+\s/, '');
 
-        document.getElementById('corteDetailTitle').textContent = event.title || '';
-        document.getElementById('corteDetailStatusBadge').textContent = cfg.label;
-        document.getElementById('corteDetailHeader').style.background = cfg.color;
-        document.getElementById('corteDetailStart').textContent = formatDate(event.start);
-        document.getElementById('corteDetailEnd').textContent = formatDate(event.end);
+        const titleElement = document.getElementById('corteDetailTitle');
+        if (titleElement) titleElement.textContent = event.title || '';
+        const statusBadge = document.getElementById('corteDetailStatusBadge');
+        statusBadge.textContent = stateKey || '—';
+        statusBadge.title = stateName;
+        statusBadge.setAttribute('aria-label', stateName);
+        statusBadge.style.setProperty('background-color', stateColor, 'important');
+        document.getElementById('corteDetailDepartment').textContent = (props.departamentos || []).join(', ') || '—';
+        document.getElementById('corteDetailLocations').textContent = (props.municipios || []).join(', ')
+            || window.PortalConfig?.i18n?.cortes?.detailNoLocations
+            || 'Sin ubicaciones registradas';
+        document.getElementById('corteDetailDate').textContent = [formatScheduleDate(event.start), formatScheduleDate(event.end)]
+            .filter(Boolean)
+            .filter((date, index, dates) => index === 0 || date !== dates[0])
+            .join(' - ');
+        document.getElementById('corteDetailTime').textContent = [formatScheduleTime(event.start), formatScheduleTime(event.end)]
+            .filter(Boolean)
+            .join(' - ');
 
-        const locEl = document.getElementById('corteDetailLocations');
-        if (locations.length > 0) {
-            locEl.innerHTML = locations.map((loc) => `<span class="badge bg-light text-dark border me-1 mb-1">${loc}</span>`).join('');
-        } else {
-            locEl.textContent = window.PortalConfig?.i18n?.cortes?.detailNoLocations || 'Sin ubicaciones registradas';
-        }
-
-        // Mostrar descripción
         const descEl = document.getElementById('corteDetailDescription');
         if (props.descripcion) {
             descEl.textContent = props.descripcion;

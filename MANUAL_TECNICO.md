@@ -16,9 +16,9 @@ graph TD
     CI --> PUB[Portal público<br/>Controllers + Services + Views]
     CI --> MOD[Módulos de aplicación]
     MOD --> AUTH[Auth<br/>login, 2FA/TOTP, RBAC]
-    MOD --> ADM[Admin<br/>usuarios, roles, cargas, logs]
-    MOD --> ECOE[ECOE<br/>Tarifa Social, GU, EEM, formularios]
-    MOD --> ETCEE[ETCEE<br/>cortes y SNI]
+    MOD --> ADM[Admin<br/>usuarios, roles, cargas, logs, traducciones]
+    MOD --> ECOE[ECOE<br/>Tarifa Social, tarifas, NIS, GU, EEM, formularios]
+    MOD --> ETCEE[ETCEE<br/>cortes, mantenimiento y SNI]
     MOD --> GERO[GERO<br/>comunidades y cargas]
     MOD --> COM[Comunicaciones]
     PUB --> MYSQL[(MySQL/MariaDB<br/>portal_inde_db)]
@@ -28,6 +28,8 @@ graph TD
     ETCEE --> MYSQL
     GERO --> MYSQL
     ECOE --> SQLSRV[(SQL Server externo<br/>base FAC DEOCSA)]
+    PUB --> I18N[Idiomas dinámicos<br/>translations + languages]
+    I18N --> MYSQL
     CI --> WR[writable/<br/>logs, cache, sesiones, uploads]
 ```
 
@@ -63,7 +65,7 @@ sqlsrv pdo_sqlsrv
 
 ```text
 bacon/bacon-qr-code ^3.0
-dompdf/dompdf ^2.0
+dompdf/dompdf ^3.1
 laminas/laminas-escaper ^2.18
 phpoffice/phpspreadsheet ^5.7
 psr/log ^3.0
@@ -88,13 +90,15 @@ portal-inde/
 │   │   └── *.sql                 # Esquemas SQL de referencia/base
 │   ├── Filters/                  # Auth, permisos, auditoría, seguridad
 │   ├── Helpers/                  # Helpers de aplicación
+│   ├── Models/                   # Modelos globales, incluido TranslationModel
 │   ├── Modules/
-│   │   ├── Admin/                # Administración y RBAC
+│   │   ├── Admin/                # Administración, RBAC e idiomas
 │   │   ├── Auth/                 # Login, sesión y 2FA/TOTP
 │   │   ├── Comunicaciones/       # Funciones de comunicaciones
-│   │   ├── Ecoe/                 # ECOE: GU, EEM, Tarifa Social
-│   │   ├── Etcee/                # ETCEE: cortes y SNI
-│   │   └── Gero/                 # Comunidades, fuentes y cargas
+│   │   ├── Ecoe/                 # ECOE: GU, EEM, NIS, tarifas y Tarifa Social
+│   │   ├── Etcee/                # ETCEE: cortes, mantenimiento y SNI
+│   │   ├── Gero/                 # Comunidades, fuentes y cargas
+│   │   └── GerenciaBaseController.php
 │   ├── Services/                 # Servicios de dominio globales
 │   ├── Views/                    # Vistas globales
 │   └── Config/Autoload.php       # Mapeo PSR-4 App\\ -> app/
@@ -115,6 +119,7 @@ La aplicación usa MVC con una organización modular por gerencia o dominio:
 
 - **Rutas:** `app/Config/Routes.php` y `app/Modules/*/Config/Routes.php` registran las URL públicas, API, autenticación y administración.
 - **Controladores:** reciben la petición, validan entrada y coordinan servicios/modelos.
+- **Controladores base:** `AdminBaseController` valida y refresca el perfil RBAC, y ofrece `adminView()` para renderizar el layout administrativo con contexto compartido. Los controladores públicos usan `BaseController`.
 - **Servicios:** encapsulan reglas de negocio y operaciones complejas, por ejemplo `PublicPortalService`, `RbacService`, `TotpService` y `ExcelUploadService`.
 - **Modelos:** acceden a MySQL/MariaDB y, para los casos ECOE, a la conexión SQL Server externa.
 - **Filtros:** aplican HTTPS, CSRF, autenticación, permisos, modo solo lectura, auditoría y caché.
@@ -123,9 +128,47 @@ La aplicación usa MVC con una organización modular por gerencia o dominio:
 
 El sistema no está separado en microservicios. Es un monolito modular con una integración externa de datos ECOE.
 
+Los directorios de módulos actuales son `Admin`, `Auth`, `Comunicaciones`, `Ecoe`, `Etcee` y `Gero`. El gestor de idiomas dinámicos está dentro de `Admin`; no es un directorio independiente. `GerenciaBaseController.php` es una base compartida, no otro módulo. Las rutas se cargan desde `app/Config/Routes.php`.
+
+### Seguridad de rutas, RBAC y 2FA
+
+- El grupo administrativo aplica `adminAuth` y `activityLog`. La portada `/admin` es un punto de entrada para usuarios autorizados al panel; las secciones y endpoints individuales exigen `adminPermission:<slug>`.
+- Las rutas de gerencia usan `gerenciaAccess:<slug>,<permission>` para validar sesión, segundo factor y permiso del módulo.
+- `csrf` se aplica globalmente a las peticiones de escritura; las excepciones deben limitarse a endpoints que no puedan usar token de sesión y disponer de controles equivalentes.
+- `AdminBaseController::authProfile()` valida `session('auth')`, exige 2FA si la cuenta lo tiene activado y refresca el perfil, roles y permisos desde la base de datos antes de autorizar operaciones administrativas.
+
+| Recurso | Protección |
+|---------|------------|
+| `/admin/idiomas` | `adminAuth`, `activityLog` y `adminPermission:admin.idiomas.view`. |
+| `/admin/usuarios` | `adminAuth`, `activityLog` y `adminPermission:admin.usuarios.view`. |
+| `/gerencias/ecoe/tarifa-social/tarifas` | `gerenciaAccess:ecoe,gerencia.ecoe.tarifa_social.tarifas.access`. |
+| `/admin/etcee/estados-mantenimiento` | `adminAuth`, `activityLog` y `adminPermission:gerencia.etcee.modulo.access`. |
+
+El inicio de sesión está en `AuthController`. El perfil autenticado se guarda bajo `auth` y el identificador de sesión se regenera al iniciar sesión. Cuando se requiere TOTP, se guarda un estado temporal `pending_2fa`; el acceso normal no se completa hasta validar el código. Las contraseñas se almacenan con `password_hash()` y se verifican con `password_verify()`.
+
+Rutas principales de autenticación: `GET/POST /login`, `GET/POST /2fa/verify`, `GET/POST /2fa/setup` y `POST /logout`. El emisor y tolerancia de TOTP se configuran con `security.totpIssuer` y `security.totpLeeway`.
+
+### Traducciones dinámicas y accesibilidad
+
+El portal conserva los archivos nativos de CodeIgniter en `app/Language/` y, en paralelo, usa traducciones dinámicas en base de datos. El helper global `__($key, $default)` resuelve el locale de `session('site_locale')`, normaliza el texto por defecto (espacios, diacríticos y mayúsculas/minúsculas) y reutiliza traducciones aprobadas por `source_text_normalized`, incluso entre claves distintas. Si una clave no existe, la autodetecta y registra para revisión. Los mapas por idioma se cachean.
+
+La tabla `translations` contiene idioma, clave, texto origen, texto origen normalizado, valor e indicador `is_autodiscovered`. La tabla `languages` controla qué idiomas están activos y visibles. La aplicación contempla `es`, `en`, `quc`, `qeq`, `cak`, `mam`, `usp`, `poc`, `poh`, `kjb`, `tzh`, `mop`, `agu`, `chq`, `jac`, `gar` y `xnk`; la barra ofrece los que estén activos y visibles en el catálogo.
+
+El panel `/admin/idiomas` está gestionado por `TranslationsController` y protegido por `admin.idiomas.view`. Ofrece búsqueda, edición, administración del catálogo, importación/exportación y limpieza de caché. La barra de `app/Views/public/layout.php` cambia idioma mediante `POST /api/public/set-language`; los controles A+/A− y alto contraste persisten en `localStorage`.
+
+### Estándar administrativo: CRUD y paginación
+
+- Crear y editar desde un modal único reutilizable; no separar alta/edición en pantallas distintas.
+- Confirmar borrados con un modal. Está prohibido usar `window.confirm`.
+- Todas las tablas/listados administrativos deben paginar en el backend con `Model::paginate($perPage, $group)` u otra consulta limitada equivalente. Definir tamaño y grupo únicos explícitamente, preservar filtros al navegar y evitar cargar todos los registros en memoria.
+- El tamaño estándar para listados administrativos habituales es 15 registros por página; cualquier excepción debe estar definida y justificada por el módulo.
+- Renderizar Bootstrap (`pagination`, `page-item`, `page-link`), con números centrados y Anterior/Siguiente deshabilitados en los extremos. Ocultar el paginador si solo hay una página.
+
+La tabla de tarifas mensuales ECOE es la implementación de referencia: límite backend de 15 registros y plantilla `tarifas_bootstrap` en `app/Config/Pager.php`.
+
 ### Variables de entorno
 
-El proyecto utiliza `.env` en la raíz. El repositorio auditado contiene `.env`, pero no contiene `env` ni `.env.example`; el siguiente bloque es una plantilla segura y descriptiva para crear un entorno nuevo. Sustituya todos los valores de ejemplo antes de ejecutar la aplicación.
+El proyecto carga la configuración desde `.env` en la raíz. El siguiente bloque es únicamente una plantilla descriptiva para crear la configuración local; sustituya todos los valores de ejemplo y no copie credenciales reales a documentación, tickets ni control de versiones.
 
 #### Contenido recomendado de `.env.example`
 
@@ -134,7 +177,7 @@ CI_ENVIRONMENT=development
 
 app.baseURL=http://localhost:8080/portal-inde/public
 app.defaultLocale=es
-app.supportedLocales=es,en,quc,qeq,cak
+app.supportedLocales=es,en,quc,qeq,cak,mam,usp,poc,poh,kjb,tzh,mop,agu,chq,jac,gar,xnk
 app.appTimezone=UTC
 app.forceGlobalSecureRequests=false
 app.CSPEnabled=false
@@ -156,6 +199,9 @@ database.ecoe.password=CAMBIAR_PASSWORD_SQLSERVER
 database.ecoe.port=1433
 database.ecoe.DBDriver=SQLSRV
 database.ecoe.DBDebug=false
+database.ecoe.deocsa=FAC DEOCSA
+database.ecoe.deorsa=FAC DEORSA
+database.ecoe.eegsa=FAC EEGSA
 
 security.ajaxCipherKey=base64:GENERAR_32_BYTES_ALEATORIOS_EN_BASE64
 security.totpIssuer=Portal INDE
@@ -192,7 +238,18 @@ portal.whatsappSni=+50200000004
 
 ### Migraciones y seeds
 
-Las migraciones se encuentran en `app/Database/Migrations/` y cubren auditoría, portal público, ETCEE, catálogos, SNI, ECOE y GERO. El seeder disponible es `CatalogoUbicacionesSeeder`, que carga departamentos y municipios de Guatemala.
+Toda tabla nueva y todo cambio de esquema debe implementarse exclusivamente mediante migraciones de CodeIgniter 4. Está prohibido ejecutar SQL manual directo para crear, alterar o reparar tablas en desarrollo, staging o producción. Los archivos `.sql` del repositorio son referencias para revisar o convertir a migraciones; no son un procedimiento operativo de instalación o actualización.
+
+Crear y aplicar una migración desde la raíz:
+
+```bash
+php spark make:migration NombreDescriptivo
+php spark migrate
+```
+
+Cada migración debe tener `up()` y `down()` completos, ser revisada/versionada junto con el código y ser idempotente cuando el patrón local lo requiera. Para revisar estado o revertir, usar `php spark migrate:status` y `php spark migrate:rollback`. No corregir fallos de migración ejecutando `ALTER TABLE` manualmente.
+
+Las migraciones en `app/Database/Migrations/` cubren auditoría, portal público, ETCEE, catálogos, SNI, ECOE, GERO, idiomas y funcionalidades recientes como tarifas mensuales ECOE y estados de mantenimiento ETCEE. El seeder `CatalogoUbicacionesSeeder` carga departamentos y municipios de Guatemala.
 
 Ejecutar desde la raíz:
 
@@ -210,28 +267,13 @@ C:\xampp\php\php.exe spark db:seed CatalogoUbicacionesSeeder
 C:\xampp\php\php.exe spark sync:permissions
 ```
 
-### Esquema base y orden de inicialización
+### Estado del esquema base y bootstrap limpio
 
-El archivo `app/Database/inde_core_schema.sql` crea la base/tablas base de autenticación y RBAC, además de datos iniciales. Las migraciones actuales no crean claramente todas esas tablas, por lo que una instalación limpia no debe ejecutar únicamente `spark migrate`.
+`app/Database/inde_core_schema.sql` contiene el esquema inicial de autenticación/RBAC y datos de bootstrap; `etcee_cortes_schema.sql` y `ecoe_tarifa_social_schema.sql` son referencias de dominio. Actualmente no existe una migración que represente completamente todas las tablas base de usuarios, gerencias, roles y permisos. Por eso, `php spark migrate` por sí solo no garantiza inicializar una base vacía.
 
-Con MySQL disponible en `PATH`, importar el esquema base así:
+Esta brecha no autoriza a importar o ejecutar esos archivos SQL directamente: hacerlo contradice la política migration-only. Para habilitar instalaciones limpias conformes, primero debe crearse y revisarse una migración base que reproduzca el esquema y los datos iniciales necesarios. Hasta contar con ella, no se debe declarar que un bootstrap vacío se completa solo con `spark migrate`; use únicamente una base ya aprovisionada mediante el flujo autorizado del entorno y reporte la migración base como requisito pendiente.
 
-```bash
-mysql -u root -p < app/Database/inde_core_schema.sql
-```
-
-Después ejecutar las migraciones y el seeder. Si la base o el usuario ya existen, revisar el SQL y hacer un respaldo antes de importarlo. Los archivos `etcee_cortes_schema.sql` y `ecoe_tarifa_social_schema.sql` son esquemas de referencia; no deben ejecutarse a ciegas sobre una instalación existente.
-
-Orden recomendado:
-
-```text
-1. Crear usuario/base MySQL y preparar credenciales.
-2. Importar inde_core_schema.sql en una instalación nueva.
-3. Ejecutar php spark migrate.
-4. Ejecutar php spark db:seed CatalogoUbicacionesSeeder.
-5. Ejecutar php spark sync:permissions.
-6. Verificar la conexión SQL Server antes de habilitar funciones ECOE.
-```
+En bases ya inicializadas, el flujo de mantenimiento es ejecutar `php spark migrate`, después `php spark db:seed CatalogoUbicacionesSeeder` cuando corresponda y `php spark sync:permissions` tras desplegar permisos/rutas nuevas. Verifique la conexión SQL Server antes de habilitar las funciones ECOE que la requieren.
 
 Antes de ejecutar `ecoe:estandarizar-referencias`, realizar respaldo: el comando recalcula y modifica referencias en datos GU, EEM y Tarifa Social.
 
@@ -264,13 +306,9 @@ Antes de ejecutar `ecoe:estandarizar-referencias`, realizar respaldo: el comando
 
 4. Cree `.env` en la raíz y configure, como mínimo, `CI_ENVIRONMENT`, `app.baseURL`, `database.default.*`, `database.ecoe.*` si aplica y `security.ajaxCipherKey`. No use en producción la contraseña vacía de `root` ni la clave de ejemplo.
 
-5. Cree la base principal e importe el esquema de seguridad/RBAC:
+5. Configure una base de datos MySQL/MariaDB y las credenciales de mínimo privilegio. Antes de usar una base vacía, revise el estado de la migración base RBAC descrito en **Estado del esquema base y bootstrap limpio**; no ejecute archivos `.sql` manualmente.
 
-   ```bat
-   C:\xampp\mysql\bin\mysql.exe -u root -p < app\Database\inde_core_schema.sql
-   ```
-
-6. Ejecute migraciones, catálogo y permisos:
+6. En una base ya aprovisionada, ejecute migraciones, catálogo y permisos:
 
    ```bat
    C:\xampp\php\php.exe spark migrate
@@ -357,6 +395,17 @@ sudo find writable/ -type f -exec chmod 664 {} \;
 
 Mantenga `app/`, `system/`, `public/` y `vendor/` sin permisos de escritura para el proceso web siempre que la operación lo permita.
 
+### Directorios y archivos protegidos
+
+| Ruta | Acceso HTTP | Permisos del proceso web |
+|------|-------------|--------------------------|
+| `app/`, `system/`, `vendor/` | No deben ser accesibles directamente. | Lectura; sin escritura durante la operación normal. |
+| `writable/` | No debe exponerse ni permitir descarga directa. | Escritura solo en las carpetas necesarias (`cache/`, `logs/`, `session/`, `tmp/`, `uploads/`). |
+| `.env` | Nunca debe ser servido por Apache/Nginx ni incluido en el control de versiones. | Lectura para PHP; acceso restringido a administradores del servidor. |
+| `public/` | Único document root permitido; solo recursos públicos y `index.php`. | Mantener el código de despliegue sin escritura por el proceso web. |
+
+En producción, las reglas del servidor deben denegar el acceso a dotfiles y a `app/`, `system/`, `vendor/` y `writable/`. No cambie `writable/` a permisos globales `777`; conceda acceso únicamente al usuario de Apache/PHP-FPM.
+
 ## 6. Mantenimiento, logs y solución de problemas
 
 ### Logs y estado persistente
@@ -414,11 +463,14 @@ Para SQL Server, valide que el puerto `1433` sea accesible y que el driver `sqls
 | `Class not found` después del clonado | Ejecute `composer install` y confirme que `vendor/autoload.php` exista. |
 | Error 404 en rutas internas | El document root no apunta a `public/`, `mod_rewrite` está deshabilitado o `AllowOverride All` no está activo. |
 | No se puede escribir en caché, sesiones o uploads | Ajuste permisos/ACL de `writable/` y compruebe `writable/logs/`. |
-| Fallo de conexión MySQL | Revise `database.default.*`, que MySQL esté iniciado y que la base exista después de importar `inde_core_schema.sql`. |
+| Fallo de conexión MySQL | Revise `database.default.*`, que MySQL esté iniciado y que la base exista y sea accesible para el usuario de aplicación. |
 | Fallo de conexión ECOE | Revise red hacia el servidor SQL Server, `sqlsrv`/`pdo_sqlsrv`, puerto 1433, nombre de base y credenciales. |
-| Tablas `users` o `roles` inexistentes | `spark migrate` no sustituye al esquema RBAC base. Importe `app/Database/inde_core_schema.sql` en una instalación limpia o cree una migración equivalente controlada. |
+| Tablas `users` o `roles` inexistentes | Compruebe `php spark migrate:status`. El repositorio aún requiere una migración base RBAC para bootstrap limpio; no ejecute `inde_core_schema.sql` manualmente como workaround. |
 | Migración falla por tabla existente | Haga respaldo, revise `php spark migrate:status` y determine si la base fue inicializada con un esquema parcial. No borre tablas en producción para forzar la migración. |
 | Login/2FA no funciona | Compruebe tablas RBAC, hora del servidor, `security.totpIssuer`, la sesión escribible y que el usuario tenga roles/permisos. |
+| `ERR_TOO_MANY_REDIRECTS` entre `/login` y `/admin` | Confirme que `baseURL`, host y protocolo coincidan y que el navegador conserve `ci_session`. Revise `session('auth')`, 2FA pendiente y que el destino de login corresponda a un permiso que el filtro acepta. Elimine cookies antiguas del host después de corregir configuración. |
+| CSRF rechaza una petición POST | Compruebe que el formulario renderiza `csrf_field()`, que AJAX envía el token vigente y que la excepción global, si existe, está limitada al endpoint previsto. |
+| Idioma o traducción no se actualiza | Verifique `site_locale`, el estado activo/visible en `languages` y la clave/texto normalizado en `translations`; limpie el caché desde `/admin/idiomas` si corresponde. |
 | Archivos descargables públicamente | Revise que las cargas estén bajo `writable/` y que las descargas pasen por controladores autenticados, no por una URL directa. |
 
 ### Operación segura antes de producción
@@ -430,7 +482,7 @@ Para SQL Server, valide que el puerto `1433` sea accesible y que el driver `sqls
 4. Crear un usuario de base con privilegios mínimos; no usar root ni sa para la aplicación.
 5. Activar HTTPS y revisar CSP y secureheaders.
 6. Confirmar que .env, app/, system/, vendor/ y writable/ no sean accesibles por HTTP.
-7. Respaldar MySQL antes de migraciones o de ecoe:estandarizar-referencias.
+7. Respaldar MySQL antes de migraciones o de `ecoe:estandarizar-referencias`; no ejecutar cambios de esquema con SQL manual.
 8. Revisar rotación, retención y acceso a writable/logs/ y activity_logs.
 9. Ejecutar pruebas y comprobar rutas públicas, login, administración y conexión ECOE.
 ```

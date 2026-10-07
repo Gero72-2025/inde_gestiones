@@ -6,13 +6,10 @@
     <meta name="description" content="<?= esc(lang('Portal.metaDescription')) ?>">
     <meta name="robots" content="index,follow">
     <title><?= esc(lang('Portal.metaTitle')) ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/css/century-gothic.css') ?>" rel="stylesheet">
     <style>
-        body { font-family: 'Sora', sans-serif; background: linear-gradient(180deg, #eff8ff 0%, #f8fcfb 100%); }
-        h1, h2 { font-family: 'Newsreader', serif; }
+        body { background: linear-gradient(180deg, #eff8ff 0%, #f8fcfb 100%); }
         .hero { background: linear-gradient(130deg, #0d4460 0%, #1a936f 100%); color: #fff; border-bottom-left-radius: 2rem; border-bottom-right-radius: 2rem; }
         .option-card { border: 1px solid #cee0ee; border-radius: 1rem; box-shadow: 0 10px 20px rgba(13, 57, 86, .08); }
     </style>

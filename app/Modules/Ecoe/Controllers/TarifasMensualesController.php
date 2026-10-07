@@ -56,8 +56,11 @@ class TarifasMensualesController extends AdminBaseController
             $filterDistributorId = 0;
         }
 
+        $records = $this->tarifaMensualModel->paginateOrdenados($filterDistributorId);
+
         return $this->adminView('App\\Modules\\Ecoe\\Views\\tarifas_mensuales', [
-            'records' => $this->tarifaMensualModel->listOrdenados($filterDistributorId),
+            'records' => $records,
+            'pager' => $this->tarifaMensualModel->pager,
             'record' => $record,
             'distribuidoras' => $distribuidoras,
             'filterDistributorId' => $filterDistributorId,

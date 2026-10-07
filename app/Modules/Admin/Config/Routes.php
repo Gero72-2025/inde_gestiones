@@ -4,11 +4,18 @@ $routes->group('admin', [
     'namespace' => 'App\Modules\Admin\Controllers',
     'filter' => ['adminAuth', 'activityLog'],
 ], static function ($routes) {
-    $routes->get('/', 'DashboardController::index', ['filter' => 'adminPermission:admin.dashboard.view']);
+    $routes->get('/', 'DashboardController::index');
 
     $routes->get('gerencias', 'GerenciasController::index', ['filter' => 'adminPermission:admin.gerencias.view']);
     $routes->get('usuarios', 'UsersController::index', ['filter' => 'adminPermission:admin.usuarios.view']);
     $routes->get('uploads', 'UploadController::index', ['filter' => 'adminPermission:admin.uploads.view']);
+    $routes->get('update', 'AutoUpdateController::index', ['filter' => 'adminPermission:admin.auto_update.view']);
+    $routes->get('update/export/(:segment)', 'AutoUpdateController::export/$1', ['filter' => 'adminPermission:admin.auto_update.view']);
+    $routes->post('update/analyze', 'AutoUpdateController::analyze', ['filter' => 'adminPermission:admin.auto_update.view']);
+    $routes->post('update/table-preview', 'AutoUpdateController::tablePreview', ['filter' => 'adminPermission:admin.auto_update.view']);
+    $routes->post('update/attachments', 'AutoUpdateController::scanAttachments', ['filter' => 'adminPermission:admin.auto_update.view']);
+    $routes->post('update/export-selected', 'AutoUpdateController::exportSelected', ['filter' => 'adminPermission:admin.auto_update.view']);
+    $routes->post('update/import', 'AutoUpdateController::import', ['filter' => 'adminPermission:admin.auto_update.view']);
     $routes->get('logs', 'LogsController::index', ['filter' => 'adminPermission:admin.logs.view']);
     $routes->get('portal-publico', 'PublicMenuController::index', ['filter' => 'adminPermission:admin.portal_publico.view']);
     $routes->get('migraciones', 'MigrationsController::index', ['filter' => 'adminPermission:admin.migrations.view']);
@@ -72,6 +79,9 @@ $routes->group('admin', [
 
     $routes->get('etcee/dashboard', '\\App\\Modules\\Etcee\\Controllers\\CortesController::index', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
     $routes->get('etcee/cortes', '\\App\\Modules\\Etcee\\Controllers\\CortesController::index', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
+    $routes->get('etcee/estados-mantenimiento', '\\App\\Modules\\Etcee\\Controllers\\EstadosMantenimientoController::index', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
+    $routes->post('etcee/estados-mantenimiento/save', '\\App\\Modules\\Etcee\\Controllers\\EstadosMantenimientoController::save', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
+    $routes->post('etcee/estados-mantenimiento/(:num)/delete', '\\App\\Modules\\Etcee\\Controllers\\EstadosMantenimientoController::delete/$1', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
     $routes->get('etcee/sni', '\\App\\Modules\\Etcee\\Controllers\\SniController::index', ['filter' => 'adminPermission:gerencia.etcee.sni.access']);
     $routes->post('etcee/sni', '\\App\\Modules\\Etcee\\Controllers\\SniController::index', ['filter' => 'adminPermission:gerencia.etcee.sni.access']);
     $routes->get('etcee/sni/crud', '\\App\\Modules\\Etcee\\Controllers\\SniController::index', ['filter' => 'adminPermission:gerencia.etcee.sni.access']);
@@ -88,6 +98,8 @@ $routes->group('admin', [
     $routes->get('etcee/sni/capas/get/(:num)', '\\App\\Modules\\Etcee\\Controllers\\SniController::capaGet/$1', ['filter' => 'adminPermission:gerencia.etcee.sni.access']);
     $routes->post('api/etcee/cortes/catalogos', '\\App\\Modules\\Etcee\\Controllers\\CortesController::catalogos', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
     $routes->post('api/etcee/cortes/list', '\\App\\Modules\\Etcee\\Controllers\\CortesController::list', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
+    $routes->get('api/etcee/cortes/template', '\\App\\Modules\\Etcee\\Controllers\\CortesController::downloadTemplate', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
+    $routes->post('api/etcee/cortes/import', '\\App\\Modules\\Etcee\\Controllers\\CortesController::importTemplate', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
     $routes->post('api/etcee/cortes', '\\App\\Modules\\Etcee\\Controllers\\CortesController::store', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
     $routes->post('api/etcee/cortes/(:num)', '\\App\\Modules\\Etcee\\Controllers\\CortesController::update/$1', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);
     $routes->post('api/etcee/cortes/(:num)/delete', '\\App\\Modules\\Etcee\\Controllers\\CortesController::delete/$1', ['filter' => 'adminPermission:gerencia.etcee.modulo.access']);

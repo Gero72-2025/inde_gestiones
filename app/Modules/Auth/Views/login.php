@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ingreso Seguro | INDE</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/css/century-gothic.css') ?>" rel="stylesheet">
     <style>
         body { background: linear-gradient(135deg, #d9e7ff 0%, #f7f9fc 45%, #d7f0e7 100%); min-height: 100vh; }
         .auth-shell { min-height: 100vh; }

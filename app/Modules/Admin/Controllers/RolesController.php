@@ -280,6 +280,7 @@ class RolesController extends AdminBaseController
             ['slug' => 'admin.migrations.view', 'nombre' => 'Gestionar migraciones', 'descripcion' => 'Permite consultar estado de migraciones y ejecutar controles de migracion.'],
             ['slug' => 'admin.logs.view', 'nombre' => 'Ver logs', 'descripcion' => 'Permite consultar logs y actividad del sistema.'],
             ['slug' => 'admin.uploads.view', 'nombre' => 'Gestionar cargas masivas', 'descripcion' => 'Permite acceder a carga masiva y descarga de archivos.'],
+            ['slug' => 'admin.auto_update.view', 'nombre' => 'Gestionar paquetes de modulos', 'descripcion' => 'Permite empaquetar modulos e instalar actualizaciones.'],
         ];
 
         foreach ($definitions as $def) {

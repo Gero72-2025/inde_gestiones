@@ -6,10 +6,12 @@ use DateTimeImmutable;
 
 class TarifaMensualModel extends EcoeBaseModel
 {
+    private const PER_PAGE = 15;
+
     protected $table = 'ecoe_tarifas_mensuales';
     protected $allowedFields = ['distribuidora_id', 'anio', 'mes', 'tarifa_plena', 'tarifa_social'];
 
-    public function listOrdenados(?int $distribuidoraId = null): array
+    public function paginateOrdenados(?int $distribuidoraId = null): array
     {
         $builder = $this->select('ecoe_tarifas_mensuales.*, ecoe_distribuidoras.nombre AS distribuidora_nombre')
             ->join('ecoe_distribuidoras', 'ecoe_distribuidoras.id = ecoe_tarifas_mensuales.distribuidora_id', 'left');
@@ -20,7 +22,7 @@ class TarifaMensualModel extends EcoeBaseModel
 
         return $builder->orderBy('ecoe_tarifas_mensuales.anio', 'DESC')
             ->orderBy('ecoe_tarifas_mensuales.mes', 'DESC')
-            ->findAll();
+            ->paginate(self::PER_PAGE, 'tarifasMensuales');
     }
 
     public function existsForPeriod(int $distribuidoraId, int $year, int $month, int $exceptId = 0): bool
@@ -120,5 +122,54 @@ class TarifaMensualModel extends EcoeBaseModel
         }
 
         return [];
+    }
+
+    /**
+     * Retorna las tarifas configuradas para los períodos solicitados,
+     * indexadas por YYYY-MM.
+     *
+     * @param array<int, array{anio: int, mes: int}> $periods
+     * @return array<string, array{plena: float, social: float}>
+     */
+    public function getRatesForPeriods(int $distribuidoraId, array $periods): array
+    {
+        if ($distribuidoraId <= 0 || $periods === []) {
+            return [];
+        }
+
+        $wantedPeriods = [];
+        foreach ($periods as $period) {
+            $year = (int) ($period['anio'] ?? 0);
+            $month = (int) ($period['mes'] ?? 0);
+            if ($year >= 2000 && $month >= 1 && $month <= 12) {
+                $wantedPeriods[sprintf('%04d-%02d', $year, $month)] = true;
+            }
+        }
+
+        if ($wantedPeriods === []) {
+            return [];
+        }
+
+        $records = $this->where('distribuidora_id', $distribuidoraId)->findAll();
+        $ratesByPeriod = [];
+        foreach ($records as $record) {
+            $periodKey = sprintf('%04d-%02d', (int) $record['anio'], (int) $record['mes']);
+            if (! isset($wantedPeriods[$periodKey])) {
+                continue;
+            }
+
+            $fullRate = (float) ($record['tarifa_plena'] ?? 0.0);
+            $socialRate = (float) ($record['tarifa_social'] ?? 0.0);
+            if ($fullRate <= 0.0 || $socialRate <= 0.0) {
+                continue;
+            }
+
+            $ratesByPeriod[$periodKey] = [
+                'plena' => $fullRate,
+                'social' => $socialRate,
+            ];
+        }
+
+        return $ratesByPeriod;
     }
 }

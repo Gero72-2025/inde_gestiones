@@ -63,7 +63,6 @@
         right: 24px;
         bottom: 96px;
         z-index: 1400;
-        font-family: 'Sora', sans-serif;
     }
 
     .chat-bubble-trigger {

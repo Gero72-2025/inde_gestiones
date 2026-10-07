@@ -1,5 +1,18 @@
 # INDE Core Manual
 
+## Índice
+
+- [Requisitos base](#requisitos-base)
+- [SQL inicial](#sql-inicial)
+- [Panel administrativo (Fase 2)](#panel-administrativo-fase-2)
+- [Portal público](#portal-publico)
+- [Estándar de Nuevos Módulos (Gerencias)](#estándar-de-nuevos-módulos-gerencias)
+- [Convención de Prefijos de Base de Datos](#convencion-de-prefijos-de-base-de-datos)
+- [Regla de Migraciones para Tablas Nuevas](#regla-de-migraciones-para-tablas-nuevas)
+- [Estándar de Desarrollo para Módulos (CRUD Modal)](#estándar-de-desarrollo-para-módulos-crud-modal)
+- [Módulos Activos](#modulos-activos)
+- [Módulo de Idiomas y Accesibilidad](#modulo-de-idiomas-y-accesibilidad)
+
 ## Requisitos base
 
 - PHP 8.1 o superior. El proyecto declara ese minimo en composer.json.
@@ -57,6 +70,7 @@ existencia y sus columnas en `sys.tables/sys.columns` antes de ejecutar un
 - Carga masiva: `/admin/uploads`
 - Roles y permisos: `/admin/roles`
 - Portal publico: `/admin/portal-publico`
+- Empaquetado y actualizacion de modulos: `/admin/update` (solo superadministrador)
 - Si un usuario no es super administrador, solo ve y modifica datos de su `gerencia_id`.
 
 ### Seguridad del NAV administrativo
@@ -71,8 +85,27 @@ existencia y sus columnas en `sys.tables/sys.columns` antes de ejecutar un
     - `admin.idiomas.view`
     - `admin.logs.view`
     - `admin.uploads.view`
+    - `admin.auto_update.view`
 - Las rutas administrativas tambien estan protegidas por permiso con el alias `adminPermission`.
 - El `Super Administrador` siempre conserva acceso total porque la sincronizacion enlaza automaticamente esos permisos al rol.
+
+### Empaquetado y actualizacion de modulos
+
+- Controlador: `app/Modules/Admin/Controllers/AutoUpdateController.php`
+- Servicio: `app/Modules/Admin/Services/AutoUpdateService.php`
+- Vista: `app/Modules/Admin/Views/auto_update.php`
+- Ruta: `/admin/update`; permiso: `admin.auto_update.view`, sincronizado desde `/admin/roles`.
+- El selector lista modulos de negocio bajo `app/Modules` (excluye `Admin` y `Auth`), ordena primero los que tienen tablas y muestra su conteo. Detecta por defecto tablas `{slug}_*`; ECOE también asocia `dyn_ecoe_*`. Las tablas compartidas sin prefijo no se asignan automáticamente.
+- Las secciones administrativas se ofrecen como paquetes virtuales `Admin / Gerencias`, `Usuarios`, `Roles y Permisos`, `Portal Publico`, `Idiomas` y `Consejos`, con listas permitidas de tablas compartidas. Sus paquetes incluyen el código compartido `app/Modules/Admin/` y usan la política `update_existing`: actualizan coincidencias por clave primaria/única y omiten filas que no existen en destino; nunca insertan configuraciones iniciales faltantes.
+- El exportador incluye `app/Modules/{Modulo}/`, recursos en `public/assets/modules/{id}/`, iconos SNI de ETCEE en `public/assets/img/sni/`, imágenes de consejos ECOE en `public/uploads/consejos/` y migraciones de `app/Database/Migrations/` cuyo nombre contiene el identificador del modulo.
+- Los paquetes ZIP llevan `manifest.json` con formato, identificador, version, dependencias, tamaños y SHA-256 por archivo. La importacion limita rutas a esas carpetas, valida checksums y tamaño, y rechaza archivos ZIP no declarados.
+- El asistente tiene tres pasos: análisis/selección, escaneo de archivos y resumen/confirmación. La preview pagina 30 filas por tabla y ofrece selección de filas o de la tabla completa; admite claves primarias simples y compuestas, con un máximo de 50.000 registros por paquete. Las tablas sin clave primaria, con BLOB/binarios o columnas sensibles no autorizadas no se exportan.
+- Las filas elegidas se guardan en `package-data/data.json` con hash en el manifiesto. Los paquetes normales insertan filas nuevas y omiten duplicados. Los paquetes `admin-*` actualizan solo filas existentes, en una transacción y en orden de dependencias.
+- En el paquete `Admin / Usuarios` se excluyen password, secretos 2FA y otras columnas sensibles; durante la actualización se preservan esos valores ya existentes en destino.
+- El detector inspecciona nombres de columnas de ruta/archivo, pero no trata `route_path`/URLs de navegación como archivos. Incluye solo archivos existentes dentro de árboles aprobados: por ejemplo, el portal público puede incluir imágenes de `public/uploads/portal-nav/`. Las rutas locales faltantes/no permitidas bloquean el paquete. Convierte rutas absolutas ETCEE de KMZ a relativas para rearmarlas con el `WRITEPATH` destino.
+- Los archivos existentes sin cambios se omiten. Los reemplazos se respaldan en `writable/backups/auto-update/`; los fallos previos a migrar restauran los archivos cuando es posible. Si una migración ya comenzó, se conserva el código instalado y se reporta el fallo para evitar desalinear código y esquema.
+- Las migraciones se ejecutan individualmente mediante el runner de CI4 y se omiten si ya están en el historial `migrations`. Al agregar una migracion, su nombre debe incluir el id del modulo para incorporarse al paquete. Los datos estructurales necesarios deben protegerse mediante migraciones idempotentes.
+- Solo se admiten ZIP de hasta 25 MB y 100 MB descomprimidos. La suma SHA-256 detecta daños, pero no certifica quien produjo el paquete: instalar únicamente paquetes de una fuente confiable, ya que las migraciones son codigo PHP ejecutable.
 
 ### Carga masiva y trazabilidad
 

@@ -1212,6 +1212,7 @@ class TarifaSocialController extends AdminBaseController
             $consumo = (float) ($this->obtenerValorHistorial($row, ['consumo_kwh', 'csmo_energia_total', 'consumo', 'kwh']) ?? 0);
             $sinAporte = (float) ($this->obtenerValorHistorial($row, ['factura_sin_aporte', 'sin_aporte', 'monto_sin_aporte', 'total_sin_aporte']) ?? 0);
             $conAporte = (float) ($this->obtenerValorHistorial($row, ['factura_con_aporte', 'con_aporte', 'monto_con_aporte', 'total_con_aporte']) ?? 0);
+            $beneficioTarifaSocial = max(0.0, $sinAporte - $conAporte);
 
             if ($mes === 'Sin fecha') {
                 continue;
@@ -1223,6 +1224,7 @@ class TarifaSocialController extends AdminBaseController
                 'consumo_kwh'         => $consumo,
                 'factura_sin_aporte' => $sinAporte,
                 'factura_con_aporte' => $conAporte,
+                'beneficio_tarifa_social' => $beneficioTarifaSocial,
             ];
 
         }
@@ -1239,8 +1241,10 @@ class TarifaSocialController extends AdminBaseController
         }
 
         $ahorroTotal = 0.0;
+        $beneficioTarifaSocialTotal = 0.0;
         foreach ($periodos as $periodo) {
             $ahorroTotal += max(0.0, (float) ($periodo['factura_sin_aporte'] ?? 0.0) - (float) ($periodo['factura_con_aporte'] ?? 0.0));
+            $beneficioTarifaSocialTotal += (float) ($periodo['beneficio_tarifa_social'] ?? 0.0);
         }
 
         return [
@@ -1249,6 +1253,7 @@ class TarifaSocialController extends AdminBaseController
             'periodos'    => $periodos,
             'resumen'     => [
                 'ahorro_total' => $ahorroTotal,
+                'beneficio_tarifa_social_total' => $beneficioTarifaSocialTotal,
             ],
         ];
     }
@@ -1321,6 +1326,7 @@ HTML;
         $periodos = $historial['periodos'] ?? [];
         $resumen = $historial['resumen'] ?? [];
         $ahorroTotal = (float) ($resumen['ahorro_total'] ?? 0.0);
+        $beneficioTarifaSocialTotal = (float) ($resumen['beneficio_tarifa_social_total'] ?? 0.0);
         $anio ??= (string) date('Y');
 
         if ($periodos === []) {
@@ -1377,9 +1383,10 @@ HTML;
             $consumo = $this->formatearMonto((float) ($periodo['consumo_kwh'] ?? 0.0));
             $sin = $this->formatearMonto((float) ($periodo['factura_sin_aporte'] ?? 0.0));
             $con = $this->formatearMonto((float) ($periodo['factura_con_aporte'] ?? 0.0));
+            $beneficioTarifaSocial = $this->formatearMonto((float) ($periodo['beneficio_tarifa_social'] ?? 0.0));
             $ahorro = $this->formatearMonto(max(0.0, (float) ($periodo['factura_sin_aporte'] ?? 0.0) - (float) ($periodo['factura_con_aporte'] ?? 0.0)));
 
-            $detalleRows .= "<tr><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>$mesNombre</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>$consumo kWh</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>Q $sin</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>Q $con</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#008f39; font-weight:700; text-align:left;'>Q $ahorro</td></tr>";
+            $detalleRows .= "<tr><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>$mesNombre</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>$consumo kWh</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>Q $sin</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>Q $con</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#203447; text-align:left;'>Q $beneficioTarifaSocial</td><td style='padding:7px 6px; border-bottom:1px solid #e8edf3; font-size:10px; color:#008f39; font-weight:700; text-align:left;'>Q $ahorro</td></tr>";
         }
 
         return <<<HTML
@@ -1439,9 +1446,10 @@ body { font-family: DejaVu Sans, Arial, sans-serif; color: #1f2a37; margin: 0; p
   <div class="summary">
     <table class="summary-table">
       <tr>
-        <td style="width:33%"><div class="summary-label">Ahorro acumulado</div><div class="summary-value">Q {$this->formatearMonto($ahorroTotal)}</div></td>
-        <td style="width:33%"><div class="summary-label">Consumo promedio</div><div class="summary-value">{$this->formatearMonto($consumoPromedio)} kWh</div></td>
-        <td style="width:34%"><div class="summary-label">Meses analizados</div><div class="summary-value">{$mesesAnalizados}</div></td>
+                <td style="width:25%"><div class="summary-label">Ahorro acumulado</div><div class="summary-value">Q {$this->formatearMonto($ahorroTotal)}</div></td>
+                <td style="width:25%"><div class="summary-label">Beneficio tarifa social</div><div class="summary-value">Q {$this->formatearMonto($beneficioTarifaSocialTotal)}</div></td>
+                <td style="width:25%"><div class="summary-label">Consumo promedio</div><div class="summary-value">{$this->formatearMonto($consumoPromedio)} kWh</div></td>
+                <td style="width:25%"><div class="summary-label">Meses analizados</div><div class="summary-value">{$mesesAnalizados}</div></td>
       </tr>
     </table>
   </div>
@@ -1469,6 +1477,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; color: #1f2a37; margin: 0; p
           <th>Consumo</th>
           <th>Sin aporte</th>
           <th>Con aporte</th>
+          <th>Beneficio tarifa social</th>
           <th>Ahorro</th>
         </tr>
       </thead>
@@ -2468,31 +2477,22 @@ HTML;
     {
         $currentMonth = new \DateTimeImmutable('first day of this month');
         $year = (int) $currentMonth->format('Y');
+        $currentQuarter = intdiv((int) $currentMonth->format('n') - 1, 3) + 1;
         $ranges = [];
 
         foreach ([1, 4, 7, 10] as $quarterIndex => $startMonth) {
+            $quarter = $quarterIndex + 1;
+            $rangeYear = $quarter === 4 && $currentQuarter === 1 ? $year - 1 : $year;
             $periods = [];
             for ($offset = 0; $offset < 3; $offset++) {
-                $period = new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $startMonth));
+                $period = new \DateTimeImmutable(sprintf('%04d-%02d-01', $rangeYear, $startMonth));
                 $period = $period->modify('+' . $offset . ' months');
                 $periods[] = ['anio' => (int) $period->format('Y'), 'mes' => (int) $period->format('n')];
             }
-            $ranges['q' . ($quarterIndex + 1)] = ['periodos' => $periods];
+            $ranges['q' . $quarter] = ['periodos' => $periods, 'year' => $rangeYear];
         }
 
-        $sixMonthStart = $currentMonth->modify('-5 months');
-        $sixMonthPeriods = [];
-        for ($offset = 0; $offset < 6; $offset++) {
-            $period = $sixMonthStart->modify('+' . $offset . ' months');
-            $sixMonthPeriods[] = ['anio' => (int) $period->format('Y'), 'mes' => (int) $period->format('n')];
-        }
-        $ranges['last6'] = ['periodos' => $sixMonthPeriods];
-
-        $yearPeriods = [];
-        for ($month = 1; $month <= 12; $month++) {
-            $yearPeriods[] = ['anio' => $year, 'mes' => $month];
-        }
-        $ranges['year'] = ['periodos' => $yearPeriods];
+        $ranges['last6'] = ['periodos' => [], 'year' => null];
 
         return $ranges;
     }
@@ -2531,50 +2531,64 @@ HTML;
         }
 
         $ranges = $this->periodosReporteDisponibles();
-        $requestedByKey = [];
         $currentPeriodKey = date('Y-m');
-        foreach ($ranges as $range) {
-            foreach ($range['periodos'] as $period) {
-                $periodKey = sprintf('%04d-%02d', $period['anio'], $period['mes']);
-                if ($periodKey <= $currentPeriodKey) {
-                    $requestedByKey[$periodKey] = $period;
-                }
-            }
-        }
-
-        try {
-            $periodStatus = $this->consultarDisponibilidadMesesEcoe(
-                (string) ($consulta['distribuidora']['nombre'] ?? ''),
-                $consulta['correlativo'],
-                array_values($requestedByKey)
-            );
-        } catch (Throwable $e) {
-            log_message('error', 'ECOE TS: disponibilidad de reporte fallida. distribuidora={distribuidora}, referencia={referencia}, mensaje={message}.', [
-                'distribuidora' => (string) ($consulta['distribuidora']['nombre'] ?? ''),
-                'referencia' => substr(hash('sha256', $consulta['correlativo']), 0, 12),
-                'message' => $e->getMessage(),
-            ]);
-            $unavailable = [];
-            foreach ($ranges as $key => $_range) {
-                $unavailable[$key] = [
-                    'available' => false,
-                    'tables_available' => false,
-                    'has_data' => false,
-                    'validation_incomplete' => true,
-                ];
+        $periodStatus = [];
+        $failedRanges = [];
+        foreach ($ranges as $key => $range) {
+            if ($key === 'last6') {
+                continue;
             }
 
-            return $this->encryptedJsonResponse([
-                'ok' => true,
-                'data' => [
-                    'periods' => $unavailable,
-                    'validation_incomplete' => true,
-                ],
-            ]);
+            $periodsToCheck = array_values(array_filter(
+                $range['periodos'],
+                static fn (array $period): bool => sprintf('%04d-%02d', $period['anio'], $period['mes']) <= $currentPeriodKey
+            ));
+
+            if ($key !== 'last6' && count($periodsToCheck) !== count($range['periodos'])) {
+                continue;
+            }
+            if ($periodsToCheck === []) {
+                continue;
+            }
+
+            try {
+                $periodStatus += $this->consultarDisponibilidadMesesEcoe(
+                    (string) ($consulta['distribuidora']['nombre'] ?? ''),
+                    $consulta['correlativo'],
+                    $periodsToCheck
+                );
+            } catch (Throwable $e) {
+                $failedRanges[$key] = true;
+                log_message('warning', 'ECOE TS: disponibilidad del rango {periodo} fallida. distribuidora={distribuidora}, referencia={referencia}, mensaje={message}.', [
+                    'periodo' => $key,
+                    'distribuidora' => (string) ($consulta['distribuidora']['nombre'] ?? ''),
+                    'referencia' => substr(hash('sha256', $consulta['correlativo']), 0, 12),
+                    'message' => $e->getMessage(),
+                ]);
+            }
         }
 
         $availability = [];
         foreach ($ranges as $key => $range) {
+            if ($key === 'last6') {
+                $availability[$key] = [
+                    'available' => true,
+                    'tables_available' => null,
+                    'has_data' => null,
+                ];
+                continue;
+            }
+
+            if (! empty($failedRanges[$key])) {
+                $availability[$key] = [
+                    'available' => false,
+                    'tables_available' => false,
+                    'has_data' => false,
+                    'year' => $range['year'],
+                ];
+                continue;
+            }
+
             $tablesAvailable = true;
             $hasData = false;
             $containsFutureMonths = false;
@@ -2595,6 +2609,7 @@ HTML;
                 'available' => $tablesAvailable && $hasData && ! $containsFutureMonths,
                 'tables_available' => $tablesAvailable,
                 'has_data' => $hasData,
+                'year' => $range['year'],
             ];
         }
 
@@ -2616,11 +2631,48 @@ HTML;
             return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'El período seleccionado no es válido.']], 422);
         }
 
+        if ($rangeKey === 'last6') {
+            $rawEndPeriod = $this->request->getPost('hasta_periodo');
+            $endPeriodKey = is_scalar($rawEndPeriod) ? trim((string) $rawEndPeriod) : '';
+            $currentPeriodKey = date('Y-m');
+            if ($endPeriodKey === '') {
+                $endPeriod = new \DateTimeImmutable('first day of previous month');
+                $endPeriodKey = $endPeriod->format('Y-m');
+            }
+            if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $endPeriodKey)
+                || (int) substr($endPeriodKey, 0, 4) < 2000
+                || $endPeriodKey > $currentPeriodKey
+            ) {
+                return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'La fecha final del período no es válida.']], 422);
+            }
+
+            $monthCount = 6;
+            $endPeriod = \DateTimeImmutable::createFromFormat('!Y-m', $endPeriodKey);
+            if (! $endPeriod) {
+                return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'La fecha final del período no es válida.']], 422);
+            }
+            $ranges[$rangeKey]['periodos'] = [];
+            for ($offset = $monthCount - 1; $offset >= 0; $offset--) {
+                $period = $endPeriod->modify('-' . $offset . ' months');
+                $ranges[$rangeKey]['periodos'][] = [
+                    'anio' => (int) $period->format('Y'),
+                    'mes' => (int) $period->format('n'),
+                ];
+            }
+        }
+
+        $currentPeriodKey = date('Y-m');
+        foreach ($ranges[$rangeKey]['periodos'] as $period) {
+            if (sprintf('%04d-%02d', $period['anio'], $period['mes']) > $currentPeriodKey) {
+                return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'El período seleccionado todavía no ha concluido.']], 422);
+            }
+        }
+
         try {
             $history = $this->consultarMesesEcoe(
                 (string) ($consulta['distribuidora']['nombre'] ?? ''),
                 $consulta['correlativo'],
-                (int) date('Y'),
+                (int) ($ranges[$rangeKey]['year'] ?? date('Y')),
                 $ranges[$rangeKey]['periodos']
             );
         } catch (Throwable $e) {
@@ -2634,16 +2686,108 @@ HTML;
         }
 
         $tablesAvailable = count(array_filter($history['meses'], static fn (array $month): bool => ! empty($month['_tabla_disponible']))) === count($ranges[$rangeKey]['periodos']);
-        if (! $tablesAvailable || empty($history['hay_registros'])) {
+        if ($rangeKey !== 'last6' && (! $tablesAvailable || empty($history['hay_registros']))) {
             return $this->encryptedJsonResponse(['ok' => false, 'data' => ['message' => 'No hay información completa disponible para este período.']], 422);
+        }
+
+        $monthsWithConsumption = array_values(array_filter(
+            $history['meses'],
+            static fn (array $month): bool => (float) ($month['consumo_kwh'] ?? 0.0) > 0.0
+        ));
+        $averageConsumption = $monthsWithConsumption !== []
+            ? array_sum(array_column($monthsWithConsumption, 'consumo_kwh')) / count($monthsWithConsumption)
+            : 0.0;
+        $appliesSocialRate = $averageConsumption > 0.0 && $averageConsumption <= 300.0;
+        $ratesByPeriod = $appliesSocialRate
+            ? $this->tarifaMensualModel->getRatesForPeriods($consulta['distribuidora_id'], $ranges[$rangeKey]['periodos'])
+            : [];
+
+        $missingRatePeriods = [];
+        if ($appliesSocialRate) {
+            foreach ($history['meses'] as $month) {
+                $periodKey = (string) ($month['_periodo_key'] ?? '');
+                if ((float) ($month['consumo_kwh'] ?? 0.0) > 0.0 && ! isset($ratesByPeriod[$periodKey])) {
+                    $missingRatePeriods[] = $periodKey;
+                }
+            }
+        }
+
+        if ($missingRatePeriods !== []) {
+            $missingRatePeriods = array_values(array_unique($missingRatePeriods));
+            $missingPeriodsLabel = implode(', ', $missingRatePeriods);
+            log_message('error', 'ECOE TS: faltan tarifas mensuales para el reporte. distribuidora_id={distribuidora_id}, rango={rango}, periodos={periodos}, referencia={referencia}.', [
+                'distribuidora_id' => (int) $consulta['distribuidora_id'],
+                'rango' => $rangeKey,
+                'periodos' => $missingPeriodsLabel,
+                'referencia' => substr(hash('sha256', $consulta['correlativo']), 0, 12),
+            ]);
+
+            return $this->encryptedJsonResponse([
+                'ok' => false,
+                'data' => [
+                    'message' => 'Falta configurar tarifas mensuales válidas para: ' . $missingPeriodsLabel . '.',
+                    'error_code' => 'ECOE_TARIFF_RATES_NOT_FOUND',
+                ],
+            ], 503);
         }
 
         $months = [];
         foreach ($history['meses'] as $month) {
-            $month['ahorro'] = (float) $month['beneficio_tarifa_social'] + abs((float) $month['aporte_inde']);
+            if (! is_array($month)) {
+                continue;
+            }
+
+            $fullRate = (float) ($month['costo_tarifa_plena'] ?? 0.0);
+            $nonSocialRate = (float) ($month['costo_tarifa_no_social'] ?? 0.0);
+            if ($fullRate <= 0.0) {
+                $fullRate = $nonSocialRate;
+            }
+            if ($nonSocialRate <= 0.0) {
+                $nonSocialRate = $fullRate;
+            }
+
+            $periodKey = (string) ($month['_periodo_key'] ?? '');
+            $consumption = (float) ($month['consumo_kwh'] ?? 0.0);
+            if ($appliesSocialRate && $consumption > 0.0) {
+                $periodRates = $ratesByPeriod[$periodKey];
+                $fullRate = round($consumption * $periodRates['plena'], 2);
+                $nonSocialRate = $fullRate;
+                $socialRate = round($consumption * $periodRates['social'], 2);
+            } else {
+                $socialRate = (float) ($month['costo_tarifa_social'] ?? 0.0);
+            }
+
+            $contribution = abs((float) ($month['aporte_inde'] ?? 0.0));
+            $benefitFromRates = max(0.0, $fullRate - $socialRate);
+            $benefitFromData = (float) ($month['beneficio_tarifa_social'] ?? 0.0);
+            $benefit = $appliesSocialRate && $consumption > 0.0
+                ? ($benefitFromRates > 0.0 ? $benefitFromRates : $benefitFromData)
+                : 0.0;
+
+            $month = array_merge($month, [
+                'mes' => (string) ($month['mes'] ?? ''),
+                'consumo_kwh' => $consumption,
+                'costo_tarifa_plena' => $fullRate,
+                'costo_tarifa_social' => $socialRate,
+                'costo_tarifa_no_social' => $nonSocialRate,
+                'beneficio_tarifa_social' => $benefit,
+                'aporte_inde' => $contribution,
+                'ahorro' => $benefit + $contribution,
+                'periodo_key' => (string) ($month['_periodo_key'] ?? ''),
+                'registro_encontrado' => ! empty($month['_registro_encontrado']),
+            ]);
             unset($month['_periodo_key'], $month['_mes_num'], $month['_tabla_disponible'], $month['_registro_encontrado'], $month['_precio']);
             $months[] = $month;
         }
+
+        $benefitTotal = array_sum(array_column($months, 'beneficio_tarifa_social'));
+        $contributionTotal = array_sum(array_column($months, 'aporte_inde'));
+        $savingsTotal = array_sum(array_column($months, 'ahorro'));
+
+        $periodKeys = array_map(
+            static fn (array $period): string => sprintf('%04d-%02d', $period['anio'], $period['mes']),
+            $ranges[$rangeKey]['periodos']
+        );
 
         return $this->encryptedJsonResponse([
             'ok' => true,
@@ -2651,10 +2795,14 @@ HTML;
                 'nis' => $consulta['correlativo'],
                 'distribuidora' => (string) ($consulta['distribuidora']['nombre'] ?? ''),
                 'periodo' => $rangeKey,
+                'periodos' => $periodKeys,
                 'meses' => $months,
-                'beneficio_tarifa_social_total' => array_sum(array_column($months, 'beneficio_tarifa_social')),
-                'aporte_total' => array_sum(array_map(static fn (array $month): float => abs((float) $month['aporte_inde']), $months)),
-                'ahorro_total' => array_sum(array_column($months, 'ahorro')),
+                'costo_tarifa_plena_total' => array_sum(array_column($months, 'costo_tarifa_plena')),
+                'costo_tarifa_social_total' => array_sum(array_column($months, 'costo_tarifa_social')),
+                'costo_tarifa_no_social_total' => array_sum(array_column($months, 'costo_tarifa_no_social')),
+                'beneficio_tarifa_social_total' => $benefitTotal,
+                'aporte_total' => $contributionTotal,
+                'ahorro_total' => $savingsTotal,
             ],
         ]);
     }
@@ -2799,6 +2947,10 @@ HTML;
                 $mes['beneficio_tarifa_social'] = round(max(0.0, $costoPlena - $costoSocial), 2);
             } elseif (! $aplicaTarifaSocial) {
                 $mes['beneficio_tarifa_social'] = 0.0;
+            }
+
+            if ((float) $mes['costo_tarifa_no_social'] === 0.0 && (float) $mes['costo_tarifa_plena'] > 0.0) {
+                $mes['costo_tarifa_no_social'] = (float) $mes['costo_tarifa_plena'];
             }
 
             $mes['ahorro'] = $mes['beneficio_tarifa_social'] + abs((float) $mes['aporte_inde']);

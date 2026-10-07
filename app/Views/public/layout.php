@@ -12,12 +12,10 @@
     <!-- O si prefieres usar un PNG moderno -->
     <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url('assets/img/cropped-favicon-32x32.png') ?>">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/css/century-gothic.css') ?>" rel="stylesheet">
     <style>
         :root {
             --ink: #0e2235;
@@ -31,12 +29,9 @@
         }
 
         body {
-            font-family: 'Sora', sans-serif;
             color: var(--ink);
             background: linear-gradient(180deg, #eff8ff 0%, #f8fcfb 100%);
         }
-
-        h1, h2, h3, h4 { font-family: 'Newsreader', serif; }
 
         .hero {
             background: #0b4a66;
@@ -329,7 +324,6 @@
             font-size: clamp(2rem, 4vw, 4rem);
             font-weight: 800;
             line-height: 1.02;
-            font-family: 'Newsreader', serif;
         }
 
         .hero-subtitle {

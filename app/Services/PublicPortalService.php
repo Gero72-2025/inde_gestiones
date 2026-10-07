@@ -159,6 +159,7 @@ class PublicPortalService
 
         $hasDepartamentos = $this->db->tableExists('cat_departamentos');
         $hasMunicipios = $this->db->tableExists('cat_municipios');
+        $hasMaintenanceStates = $this->db->tableExists('etcee_estados_mantenimiento');
 
         $builder = $this->db->table('etcee_cortes c')
             ->join('etcee_cortes_ubicaciones cu', 'cu.corte_id = c.id', 'inner')
@@ -172,8 +173,13 @@ class PublicPortalService
             $builder->join('cat_municipios m', 'm.id = cu.municipio_id', 'left');
         }
 
+        if ($hasMaintenanceStates) {
+            $builder->join('etcee_estados_mantenimiento em', 'em.id = c.estado_mantenimiento_id', 'left');
+        }
+
         $builder->select(
             'c.id, c.titulo AS motivo, c.descripcion, c.estado, c.fecha_inicio, c.fecha_fin'
+            . ($hasMaintenanceStates ? ', em.id AS estado_mantenimiento_id, em.nombre AS estado_mantenimiento_nombre, em.clave AS estado_mantenimiento_clave, em.color AS estado_mantenimiento_color' : ', NULL AS estado_mantenimiento_id, NULL AS estado_mantenimiento_nombre, NULL AS estado_mantenimiento_clave, NULL AS estado_mantenimiento_color')
             . ($hasDepartamentos ? ', d.nombre AS departamento' : ', cu.departamento_id AS departamento')
             . ($hasMunicipios ? ', m.nombre AS municipio' : ', cu.municipio_id AS municipio')
         );
@@ -201,6 +207,10 @@ class PublicPortalService
                 'motivo' => (string) ($row['motivo'] ?? ''),
                 'descripcion' => (string) ($row['descripcion'] ?? ''),
                 'estado' => (string) ($row['estado'] ?? ''),
+                'estado_mantenimiento_id' => (int) ($row['estado_mantenimiento_id'] ?? 0),
+                'estado_mantenimiento_nombre' => (string) ($row['estado_mantenimiento_nombre'] ?? ''),
+                'estado_mantenimiento_clave' => (string) ($row['estado_mantenimiento_clave'] ?? ''),
+                'estado_mantenimiento_color' => (string) ($row['estado_mantenimiento_color'] ?? ''),
                 'fecha_inicio' => (string) ($row['fecha_inicio'] ?? ''),
                 'fecha_fin' => (string) ($row['fecha_fin'] ?? ''),
             ];

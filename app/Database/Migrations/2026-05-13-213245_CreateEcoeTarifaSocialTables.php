@@ -19,7 +19,7 @@ class CreateEcoeTarifaSocialTables extends Migration
         $this->forge->createTable('ecoe_distribuidoras', true, ['ENGINE' => 'InnoDB', 'DEFAULT CHARSET' => 'utf8mb4', 'COLLATE' => 'utf8mb4_unicode_ci']);
 
         // Datos semilla – distribuidoras
-        $this->db->table('ecoe_distribuidoras')->insertBatch([
+        $this->db->table('ecoe_distribuidoras')->ignore(true)->insertBatch([
             ['nombre' => 'EEGSA',     'status' => 1],
             ['nombre' => 'ENERGUATE', 'status' => 1],
             ['nombre' => 'DEORSA',    'status' => 1],
@@ -41,10 +41,12 @@ class CreateEcoeTarifaSocialTables extends Migration
         $this->forge->addKey('distribuidora_id', false, false, 'idx_nis_distribuidora');
         $this->forge->createTable('ecoe_nis_base', true, ['ENGINE' => 'InnoDB', 'DEFAULT CHARSET' => 'utf8mb4', 'COLLATE' => 'utf8mb4_unicode_ci']);
 
-        $this->db->query('ALTER TABLE ecoe_nis_base
-            ADD CONSTRAINT fk_nis_distribuidora
-            FOREIGN KEY (distribuidora_id) REFERENCES ecoe_distribuidoras(id)
-            ON DELETE RESTRICT ON UPDATE CASCADE');
+        if (! $this->foreignKeyExists('ecoe_nis_base', 'fk_nis_distribuidora')) {
+            $this->db->query('ALTER TABLE ecoe_nis_base
+                ADD CONSTRAINT fk_nis_distribuidora
+                FOREIGN KEY (distribuidora_id) REFERENCES ecoe_distribuidoras(id)
+                ON DELETE RESTRICT ON UPDATE CASCADE');
+        }
 
         // ── 3. ecoe_ts_estados ───────────────────────────────────────────────
         $this->forge->addField([
@@ -58,7 +60,7 @@ class CreateEcoeTarifaSocialTables extends Migration
         $this->forge->createTable('ecoe_ts_estados', true, ['ENGINE' => 'InnoDB', 'DEFAULT CHARSET' => 'utf8mb4', 'COLLATE' => 'utf8mb4_unicode_ci']);
 
         // Datos semilla – estados del flujo
-        $this->db->table('ecoe_ts_estados')->insertBatch([
+        $this->db->table('ecoe_ts_estados')->ignore(true)->insertBatch([
             ['nombre' => 'Ingresado',   'orden_paso' => 1, 'descripcion' => 'Solicitud recibida y pendiente de revisión'],
             ['nombre' => 'En Revisión', 'orden_paso' => 2, 'descripcion' => 'Documentación en proceso de verificación'],
             ['nombre' => 'Aprobado',    'orden_paso' => 3, 'descripcion' => 'Solicitud aprobada para Tarifa Social'],
@@ -88,10 +90,12 @@ class CreateEcoeTarifaSocialTables extends Migration
         $this->forge->addKey('fecha_ingreso', false, false, 'idx_ts_ticket_fecha');
         $this->forge->createTable('ecoe_ts_tickets', true, ['ENGINE' => 'InnoDB', 'DEFAULT CHARSET' => 'utf8mb4', 'COLLATE' => 'utf8mb4_unicode_ci']);
 
-        $this->db->query('ALTER TABLE ecoe_ts_tickets
-            ADD CONSTRAINT fk_ts_ticket_estado
-            FOREIGN KEY (estado_id) REFERENCES ecoe_ts_estados(id)
-            ON DELETE RESTRICT ON UPDATE CASCADE');
+        if (! $this->foreignKeyExists('ecoe_ts_tickets', 'fk_ts_ticket_estado')) {
+            $this->db->query('ALTER TABLE ecoe_ts_tickets
+                ADD CONSTRAINT fk_ts_ticket_estado
+                FOREIGN KEY (estado_id) REFERENCES ecoe_ts_estados(id)
+                ON DELETE RESTRICT ON UPDATE CASCADE');
+        }
 
         // ── 5. ecoe_ts_adjuntos ──────────────────────────────────────────────
         $this->forge->addField([
@@ -105,24 +109,31 @@ class CreateEcoeTarifaSocialTables extends Migration
         $this->forge->addKey('ticket_id', false, false, 'idx_ts_adjunto_ticket');
         $this->forge->createTable('ecoe_ts_adjuntos', true, ['ENGINE' => 'InnoDB', 'DEFAULT CHARSET' => 'utf8mb4', 'COLLATE' => 'utf8mb4_unicode_ci']);
 
-        $this->db->query('ALTER TABLE ecoe_ts_adjuntos
-            ADD CONSTRAINT fk_ts_adjunto_ticket
-            FOREIGN KEY (ticket_id) REFERENCES ecoe_ts_tickets(id)
-            ON DELETE CASCADE ON UPDATE CASCADE');
+        if (! $this->foreignKeyExists('ecoe_ts_adjuntos', 'fk_ts_adjunto_ticket')) {
+            $this->db->query('ALTER TABLE ecoe_ts_adjuntos
+                ADD CONSTRAINT fk_ts_adjunto_ticket
+                FOREIGN KEY (ticket_id) REFERENCES ecoe_ts_tickets(id)
+                ON DELETE CASCADE ON UPDATE CASCADE');
+        }
+    }
+
+    private function foreignKeyExists(string $table, string $constraint): bool
+    {
+        $row = $this->db->query(
+            "SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
+            [$table, $constraint],
+        )->getRowArray();
+
+        return is_array($row);
     }
 
     public function down(): void
     {
-        // Eliminar en orden inverso para respetar FK
-        $this->db->query('ALTER TABLE ecoe_ts_adjuntos DROP FOREIGN KEY fk_ts_adjunto_ticket');
         $this->forge->dropTable('ecoe_ts_adjuntos', true);
-
-        $this->db->query('ALTER TABLE ecoe_ts_tickets DROP FOREIGN KEY fk_ts_ticket_estado');
         $this->forge->dropTable('ecoe_ts_tickets', true);
 
         $this->forge->dropTable('ecoe_ts_estados', true);
 
-        $this->db->query('ALTER TABLE ecoe_nis_base DROP FOREIGN KEY fk_nis_distribuidora');
         $this->forge->dropTable('ecoe_nis_base', true);
 
         $this->forge->dropTable('ecoe_distribuidoras', true);

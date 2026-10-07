@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="paper" x2="0" y2="1">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#e7f7fb"/>
+    </linearGradient>
+    <linearGradient id="blue" x2="1" y2="1">
+      <stop stop-color="#d5f4fb" stop-opacity=".44"/>
+      <stop offset="1" stop-color="#51b8d9" stop-opacity=".38"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#paper)"/>
+  <g fill="url(#blue)">
+    <path d="M480 260 760 0h300L780 300l280 280-270 320H500l280-320z"/>
+    <path d="m930 300 300-300h300l-300 300 370 370v230h-270l-400-400 300-300z"/>
+    <path d="M0 420 250 170l250 250-250 250z"/>
+  </g>
+  <g fill="none" stroke="#54a9c3" stroke-opacity=".13" stroke-width="3">
+    <path d="m0 420 250 250 250-250m-250 250 250 230m250-600 280 280 300-300m-300 300 300 300"/>
+  </g>
+  <g fill="none" stroke="#697d84" stroke-opacity=".22" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M65 900 190 82l130 818M95 700h190M115 565h150M137 420h105M158 280h65M178 165h28M82 790h208M101 640h174M123 490h134M145 345h94M167 220h75M190 120h68M112 900 295 175M268 900 85 175M116 565l149-145M137 420l111-140M158 280l73-115M95 700l185-135M82 790l208-90M100 640l172 0"/>
+    <path d="M30 210h290M10 330h340M0 455h340M0 580h320M0 710h300"/>
+    <path d="m35 210 70-15 70 15 70-15 75 15m-300 120 80-18 80 18 80-18 80 18m-320 125 80-18 80 18 80-18 80 18m-320 125 80-18 80 18 80-18 80 18m-300 130 75-16 75 16 75-16 75 16"/>
+  </g>
+  <g fill="#89979a" fill-opacity=".25">
+    <path d="M44 206h-26l-12 8h50zm50 124H12l-12 8h94zm-2 125H0v8h104zm-8 125H0v8h96zm-6 126H0v8h88z"/>
+  </g>
+</svg>

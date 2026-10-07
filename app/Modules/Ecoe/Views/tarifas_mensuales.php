@@ -1,5 +1,6 @@
 <?php
 $records = (array) ($records ?? []);
+$pager = $pager ?? null;
 $distribuidoras = (array) ($distribuidoras ?? []);
 $record = is_array($record ?? null) ? $record : null;
 $filterDistributorId = (int) ($filterDistributorId ?? 0);
@@ -154,5 +155,10 @@ $baseUrl = site_url('gerencias/ecoe/tarifa-social/tarifas');
                 </table>
             </div>
         </div>
+        <?php if ($pager !== null && $pager->getPageCount('tarifasMensuales') > 1): ?>
+            <div class="d-flex justify-content-center mt-3">
+                <?= $pager->links('tarifasMensuales', 'tarifas_bootstrap') ?>
+            </div>
+        <?php endif; ?>
     </div>
 </div>

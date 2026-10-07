@@ -14,9 +14,6 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
 
 <!-- ── Estilos propios ─────────────────────────────────────────────────────── -->
 <style>
-    /* Fuente propia de esta pagina; librerias de graficas/PDF se retiraron por no estar cableadas al backend real */
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
-
 :root {
     --azul: #003366;
     --azul-claro: #1a6bbf;
@@ -32,14 +29,12 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
 .ts-presentacion-page {
     background: linear-gradient(180deg, #f8fbff 0%, var(--fondo) 100%);
     padding-bottom: 2rem;
-    font-family: 'Montserrat', 'Sora', sans-serif;
 }
 
 .ts-presentacion-page h1,
 .ts-presentacion-page h2,
 .ts-presentacion-page h3,
 .ts-presentacion-page h4 {
-    font-family: 'Montserrat', 'Sora', sans-serif;
 }
 
 .as-hero {
@@ -248,6 +243,8 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
     color: var(--texto-suave);
     font-size: 0.9em;
 }
+.as-loading-state { align-items: center; color: var(--texto-suave); display: flex; flex-direction: column; font-size: 0.95rem; font-weight: 600; gap: 14px; justify-content: center; min-height: 164px; text-align: center; }
+.ts-loading-spinner { animation: ts-report-spin 0.8s linear infinite; border: 4px solid #d5e0e5; border-radius: 50%; border-top-color: var(--verde); box-shadow: 0 0 0 5px rgba(0, 115, 61, 0.06); height: 42px; width: 42px; }
 
 .as-error {
     color: #c0392b;
@@ -612,6 +609,11 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
 .ts-report-header h2 { color: var(--azul); font-size: 1.15rem; font-weight: 800; margin: 0; }
 .ts-report-close { background: transparent; border: 0; color: var(--texto-suave); cursor: pointer; font-size: 1.6rem; line-height: 1; padding: 4px 8px; }
 .ts-report-status { color: var(--texto-suave); font-size: 0.88rem; min-height: 24px; }
+.ts-report-loading { align-items: center; color: var(--texto-suave); display: flex; flex-direction: column; font-size: 0.9rem; gap: 12px; justify-content: center; min-height: 190px; text-align: center; }
+.ts-report-loading[hidden],
+.ts-report-options[hidden] { display: none; }
+@keyframes ts-report-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ts-loading-spinner { animation: none; } }
 .ts-report-options { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 14px 0 20px; }
 .ts-report-option {
     background: #f5f8fa;
@@ -633,6 +635,8 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
 .ts-report-generate { background: var(--verde); border: 0; border-radius: 7px; color: #fff; cursor: pointer; font: inherit; font-size: 0.9rem; font-weight: 700; padding: 10px 18px; }
 .ts-report-generate:disabled { cursor: not-allowed; opacity: 0.5; }
 .ts-report-cancel { background: transparent; border: 1px solid #aebdc5; border-radius: 7px; color: var(--texto); cursor: pointer; font: inherit; font-size: 0.9rem; padding: 9px 15px; }
+.ts-report-cancel:disabled,
+.ts-report-close:disabled { cursor: not-allowed; opacity: 0.5; }
 @media (max-width: 520px) {
     .ts-report-dialog { padding: 18px; }
     .ts-report-options { grid-template-columns: 1fr; }
@@ -749,10 +753,14 @@ $ajaxCipherKey  = (string) ($ajaxCipherKey ?? '');
     <section class="ts-report-dialog" role="dialog" aria-modal="true" aria-labelledby="tsReportTitle" tabindex="-1">
         <div class="ts-report-header">
             <h2 id="tsReportTitle"><?= esc(__('tarifaSocial.report.title', 'Descargar reporte PDF')) ?></h2>
-            <button class="ts-report-close" type="button" data-report-close aria-label="<?= esc(__('tarifaSocial.report.close', 'Cerrar')) ?>">&times;</button>
+            <button class="ts-report-close" id="tsReportClose" type="button" data-report-close aria-label="<?= esc(__('tarifaSocial.report.close', 'Cerrar')) ?>">&times;</button>
         </div>
         <p class="ts-report-status" id="tsReportStatus" role="status" aria-live="polite"></p>
-        <div class="ts-report-options" id="tsReportOptions" role="radiogroup" aria-label="<?= esc(__('tarifaSocial.report.chooseRange', 'Selecciona un período')) ?>"></div>
+        <div class="ts-report-loading" id="tsReportLoading" role="status" aria-live="polite" hidden>
+            <span class="ts-loading-spinner" aria-hidden="true"></span>
+            <span id="tsReportLoadingText"><?= esc(__('tarifaSocial.report.loadingAvailability', 'Validando períodos disponibles...')) ?></span>
+        </div>
+        <div class="ts-report-options" id="tsReportOptions" role="radiogroup" aria-label="<?= esc(__('tarifaSocial.report.chooseRange', 'Selecciona un período')) ?>" hidden></div>
         <div class="ts-report-footer">
             <button class="ts-report-cancel" id="tsReportCancel" type="button"><?= esc(__('tarifaSocial.report.cancel', 'Cancelar')) ?></button>
             <button class="ts-report-generate" id="tsGenerateReport" type="button" disabled><?= esc(__('tarifaSocial.report.generate', 'Generar reporte')) ?></button>

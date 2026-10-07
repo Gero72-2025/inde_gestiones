@@ -1,0 +1,48 @@
+@font-face {
+    font-family: "Century Gothic";
+    src: url("../../fonts/Century%20Gothic.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Century Gothic";
+    src: url("../../fonts/GOTHICI.TTF") format("truetype");
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Century Gothic";
+    src: url("../../fonts/GOTHICB.TTF") format("truetype");
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Century Gothic";
+    src: url("../../fonts/GOTHICBI.TTF") format("truetype");
+    font-style: italic;
+    font-weight: 700;
+    font-display: swap;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+    font-family: "Century Gothic", sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: inherit;
+}

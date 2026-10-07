@@ -49,6 +49,19 @@
     margin-bottom: -.25rem;
 }
 .modal-section-divider:first-child { border-top: none; padding-top: 0; }
+.location-checklist {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: .5rem .75rem;
+    border: 1px solid #dee2e6;
+    border-radius: .5rem;
+    background: #fff;
+    scrollbar-gutter: stable;
+}
+.location-checklist .form-check { margin: 0; padding: .35rem .45rem .35rem 1.9rem; border-radius: .3rem; }
+.location-checklist .form-check:hover { background: #f1f6ff; }
+.location-checklist .form-check-label { display: block; cursor: pointer; }
+.location-checklist-empty { padding: .35rem .45rem; color: #6c757d; font-size: .875rem; }
 #corteModal .modal-header {
     background: linear-gradient(90deg, #1a56db 0%, #0e3c8a 100%);
     color: #fff;
@@ -68,9 +81,13 @@
             <small class="text-white-50">Gestión de interrupciones y cortes de energía eléctrica</small>
         </div>
     </div>
-    <button class="btn btn-light shadow-sm px-4 fw-semibold" id="newEventBtn">
-        <i class="bi bi-plus-circle-fill me-2 text-primary"></i><span class="text-primary">Nuevo mantenimiento</span>
-    </button>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="<?= esc(site_url('admin/etcee/estados-mantenimiento')) ?>" class="btn btn-outline-light shadow-sm fw-semibold"><i class="bi bi-palette2 me-1"></i>Estados</a>
+        <button type="button" class="btn btn-outline-light shadow-sm fw-semibold" id="openMaintenanceImportBtn"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Carga masiva</button>
+        <button class="btn btn-light shadow-sm px-4 fw-semibold" id="newEventBtn">
+            <i class="bi bi-plus-circle-fill me-2 text-primary"></i><span class="text-primary">Nuevo mantenimiento</span>
+        </button>
+    </div>
 </div>
 
 <div class="filter-card">
@@ -117,14 +134,44 @@
                 <tbody>
                 <tr>
                     <td colspan="6">
-                        <div class="empty-state text-center">
-                            <i class="bi bi-calendar-x empty-icon d-block mb-2"></i>
-                            <span class="text-secondary">Sin cortes para mostrar.</span>
-                        </div>
+                        <div class="empty-state text-center"><i class="bi bi-calendar-x empty-icon d-block mb-2"></i><span class="text-secondary">Sin cortes para mostrar.</span></div>
                     </td>
                 </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="maintenanceImportModal" tabindex="-1" aria-labelledby="maintenanceImportModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="maintenanceImportModalTitle"><i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Carga masiva de mantenimientos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body d-grid gap-4">
+                <section class="border rounded-3 p-3 p-md-4">
+                    <h6 class="fw-bold mb-2">1. Descargar plantilla</h6>
+                    <p class="text-secondary small mb-3">Usa la hoja “Mantenimientos”. Las fechas deben seguir el formato indicado; separa varios IDs o nombres con punto y coma.</p>
+                    <a class="btn btn-outline-success" href="<?= esc(site_url('admin/api/etcee/cortes/template')) ?>"><i class="bi bi-download me-1"></i>Descargar plantilla XLSX</a>
+                </section>
+                <section class="border rounded-3 p-3 p-md-4">
+                    <h6 class="fw-bold mb-2">2. Subir plantilla de mantenimientos</h6>
+                    <p class="text-secondary small">Se aceptan XLSX y CSV. Se validarán todas las filas antes de guardar; si alguna es inválida, no se importará ninguna.</p>
+                    <form id="maintenanceImportForm" class="vstack gap-3">
+                        <div>
+                            <label class="form-label fw-semibold" for="maintenanceImportFile">Archivo de mantenimientos</label>
+                            <input class="form-control" type="file" id="maintenanceImportFile" name="maintenance_file" accept=".xlsx,.csv" required>
+                        </div>
+                        <div class="d-flex flex-wrap justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="processMaintenanceImportBtn"><i class="bi bi-cloud-arrow-up me-1"></i>Validar e importar</button>
+                        </div>
+                    </form>
+                    <div id="maintenanceImportFeedback" class="mt-3" role="status" aria-live="polite"></div>
+                </section>
+            </div>
         </div>
     </div>
 </div>
@@ -147,13 +194,8 @@
                             <input class="form-control" id="tituloInput" placeholder="Ej: Mantenimiento línea norte" required>
                         </div>
                         <div class="col-12 col-md-4">
-                            <label class="form-label fw-semibold"><i class="bi bi-circle-fill me-1 text-primary"></i>Estado</label>
-                            <select class="form-select" id="estadoInput">
-                                <option value="programado">🔵 Programado</option>
-                                <option value="activo">🟢 Activo</option>
-                                <option value="finalizado">⚫ Finalizado</option>
-                                <option value="cancelado">🔴 Cancelado</option>
-                            </select>
+                            <label class="form-label fw-semibold" for="estadoMantenimientoInput"><i class="bi bi-circle-fill me-1 text-primary"></i>Estado de mantenimiento</label>
+                            <select class="form-select" id="estadoMantenimientoInput" required></select>
                         </div>
                         <div class="col-12"><p class="modal-section-divider"><i class="bi bi-calendar-range me-1"></i>Vigencia del corte</p></div>
                         <div class="col-12 col-md-6">
@@ -164,22 +206,18 @@
                             <label class="form-label fw-semibold"><i class="bi bi-calendar-check me-1 text-danger"></i>Fin</label>
                             <input type="datetime-local" class="form-control" id="finInput" required>
                         </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label fw-semibold"><i class="bi bi-palette me-1 text-primary"></i>Color del evento</label>
-                            <input type="color" class="form-control form-control-color" id="colorInput" value="#1f6feb" title="Color de identificación en el calendario">
-                        </div>
-                        <div class="col-12 col-md-8">
+                        <div class="col-12">
                             <label class="form-label fw-semibold"><i class="bi bi-text-paragraph me-1 text-primary"></i>Descripción</label>
                             <textarea class="form-control" id="descripcionInput" rows="2" placeholder="Detalles del corte (opcional)"></textarea>
                         </div>
                         <div class="col-12"><p class="modal-section-divider"><i class="bi bi-geo-alt me-1"></i>Ubicaciones afectadas</p></div>
                         <div class="col-12 col-md-6">
-                            <label class="form-label fw-semibold"><i class="bi bi-map me-1 text-primary"></i>Departamentos <span class="text-secondary fw-normal">(múltiple)</span></label>
-                            <select class="form-select" id="departmentIdsInput" multiple size="5"></select>
+                            <div class="form-label fw-semibold" id="departmentIdsLabel"><i class="bi bi-map me-1 text-primary"></i>Departamentos <span class="text-secondary fw-normal">(múltiple)</span></div>
+                            <div class="location-checklist" id="departmentIdsInput" role="group" aria-labelledby="departmentIdsLabel"></div>
                         </div>
                         <div class="col-12 col-md-6">
-                            <label class="form-label fw-semibold"><i class="bi bi-pin-map me-1 text-primary"></i>Municipios <span class="text-secondary fw-normal">(múltiple)</span></label>
-                            <select class="form-select" id="municipalityIdsInput" multiple size="5"></select>
+                            <div class="form-label fw-semibold" id="municipalityIdsLabel"><i class="bi bi-pin-map me-1 text-primary"></i>Municipios <span class="text-secondary fw-normal">(múltiple)</span></div>
+                            <div class="location-checklist" id="municipalityIdsInput" role="group" aria-labelledby="municipalityIdsLabel" aria-live="polite"></div>
                         </div>
                     </div>
                 </div>
@@ -203,11 +241,75 @@ const endpoints = {
     catalogs: <?= json_encode(site_url('admin/api/etcee/cortes/catalogos')) ?>,
     store: <?= json_encode(site_url('admin/api/etcee/cortes')) ?>,
     updateBase: <?= json_encode(site_url('admin/api/etcee/cortes')) ?>,
+    import: <?= json_encode(site_url('admin/api/etcee/cortes/import')) ?>,
 };
+
+const importModalElement = document.getElementById('maintenanceImportModal');
+const importForm = document.getElementById('maintenanceImportForm');
+const importFeedback = document.getElementById('maintenanceImportFeedback');
+
+function showImportFeedback(message, type, errors = []) {
+    importFeedback.replaceChildren();
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} mb-0`;
+
+    const summary = document.createElement('p');
+    summary.className = 'mb-0';
+    summary.textContent = message;
+    alert.appendChild(summary);
+
+    if (errors.length > 0) {
+        const list = document.createElement('ul');
+        list.className = 'mb-0 mt-2';
+        errors.forEach((error) => {
+            const item = document.createElement('li');
+            item.textContent = String(error);
+            list.appendChild(item);
+        });
+        alert.appendChild(list);
+    }
+
+    importFeedback.appendChild(alert);
+}
+
+document.getElementById('openMaintenanceImportBtn').addEventListener('click', function () {
+    importFeedback.replaceChildren();
+    window.bootstrap?.Modal.getOrCreateInstance(importModalElement).show();
+});
+
+importForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    const button = document.getElementById('processMaintenanceImportBtn');
+    button.disabled = true;
+    button.textContent = 'Procesando...';
+
+    try {
+        const result = await fetchEncrypted(endpoints.import, {
+            method: 'POST',
+            body: new FormData(importForm),
+        });
+        const data = result?.data || {};
+
+        if (!result?.ok) {
+            showImportFeedback(data.message || 'No fue posible importar el archivo.', 'danger', data.errors || []);
+            return;
+        }
+
+        showImportFeedback(`${data.message || 'Importación completada.'} ${Number(data.created_count || 0)} registro(s) creado(s).`, 'success');
+        importForm.reset();
+        await loadRows();
+    } catch (error) {
+        showImportFeedback('Ocurrió un error al enviar o procesar el archivo. Intenta de nuevo.', 'danger');
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-cloud-arrow-up me-1"></i>Validar e importar';
+    }
+});
 
 const state = {
     departamentos: <?= json_encode($departamentos ?? []) ?>,
     municipios: <?= json_encode($municipios ?? []) ?>,
+    estadosMantenimiento: <?= json_encode($estadosMantenimiento ?? []) ?>,
     events: [],
 };
 
@@ -336,8 +438,113 @@ function fillMunicipalityOptions(selectEl, departmentIds = [], selectedIds = [],
     selectEl.innerHTML = optionsHtml;
 }
 
+function selectedCheckboxValues(containerEl) {
+    return Array.from(containerEl.querySelectorAll('input[type="checkbox"]:checked'))
+        .map((checkbox) => Number(checkbox.value))
+        .filter((value) => value > 0);
+}
+
+function renderLocationChecklist(containerEl, options, selectedIds, idPrefix, labelForOption, emptyMessage) {
+    containerEl.replaceChildren();
+
+    if (options.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'location-checklist-empty';
+        empty.textContent = emptyMessage;
+        containerEl.appendChild(empty);
+        return;
+    }
+
+    const selectedSet = new Set(selectedIds.map((id) => String(id)));
+    const fragment = document.createDocumentFragment();
+
+    options.forEach((option) => {
+        const value = String(option.id || '');
+        const inputId = `${idPrefix}-${value}`;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check';
+
+        const checkbox = document.createElement('input');
+        checkbox.className = 'form-check-input';
+        checkbox.type = 'checkbox';
+        checkbox.id = inputId;
+        checkbox.value = value;
+        checkbox.checked = selectedSet.has(value);
+
+        const label = document.createElement('label');
+        label.className = 'form-check-label';
+        label.htmlFor = inputId;
+        label.textContent = labelForOption(option);
+
+        wrapper.append(checkbox, label);
+        fragment.appendChild(wrapper);
+    });
+
+    containerEl.appendChild(fragment);
+}
+
+function fillDepartmentChecklist(selectedIds = []) {
+    renderLocationChecklist(
+        document.getElementById('departmentIdsInput'),
+        state.departamentos,
+        selectedIds,
+        'department-option',
+        (departamento) => String(departamento.nombre || ''),
+        'No hay departamentos disponibles.'
+    );
+}
+
+function fillMunicipalityChecklist(departmentIds = [], selectedIds = []) {
+    const selectedDepartmentSet = new Set(departmentIds.map((id) => String(id)));
+    const container = document.getElementById('municipalityIdsInput');
+
+    if (selectedDepartmentSet.size === 0) {
+        renderLocationChecklist(container, [], [], 'municipality-option', () => '', 'Selecciona un departamento para ver sus municipios.');
+        return;
+    }
+
+    const available = state.municipios.filter((municipio) =>
+        selectedDepartmentSet.has(String(municipio.departamento_id || ''))
+    );
+
+    renderLocationChecklist(
+        container,
+        available,
+        selectedIds,
+        'municipality-option',
+        (municipio) => {
+            const departamento = state.departamentos.find((item) => Number(item.id) === Number(municipio.departamento_id));
+            return `${municipio.nombre || ''} (${departamento?.nombre || 'N/A'})`;
+        },
+        'No hay municipios para los departamentos seleccionados.'
+    );
+}
+
 function selectedValues(selectEl) {
     return Array.from(selectEl.selectedOptions || []).map((opt) => Number(opt.value)).filter((value) => value > 0);
+}
+
+function fillMaintenanceStateOptions(selectedId = '') {
+    const select = document.getElementById('estadoMantenimientoInput');
+    select.replaceChildren();
+
+    state.estadosMantenimiento.forEach((maintenanceState) => {
+        const option = document.createElement('option');
+        option.value = String(maintenanceState.id || '');
+        const selected = option.value === String(selectedId || '');
+        option.disabled = !Number(maintenanceState.activo) && !selected;
+        option.textContent = `${maintenanceState.clave || ''} · ${maintenanceState.nombre || ''}${Number(maintenanceState.activo) ? '' : ' (inactivo)'}`;
+        select.appendChild(option);
+    });
+
+    if (selectedId) select.value = String(selectedId);
+    select.disabled = state.estadosMantenimiento.length === 0;
+}
+
+function defaultMaintenanceStateId() {
+    return state.estadosMantenimiento.find((maintenanceState) => String(maintenanceState.clave || '').toUpperCase() === 'P')?.id
+        || state.estadosMantenimiento[0]?.id
+        || '';
 }
 
 function departmentIdsFromMunicipalityIds(municipalityIds = []) {
@@ -375,6 +582,16 @@ function formatDate(value) {
     });
 }
 
+function escapeMaintenanceStateHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+    })[character]);
+}
+
 function mapEventToEditable(eventData) {
     return {
         id: eventData.id,
@@ -392,10 +609,9 @@ function clearForm() {
     document.getElementById('descripcionInput').value = '';
     document.getElementById('inicioInput').value = '';
     document.getElementById('finInput').value = '';
-    document.getElementById('estadoInput').value = 'programado';
-    document.getElementById('colorInput').value = '#1f6feb';
-    fillDepartmentOptions(document.getElementById('departmentIdsInput'));
-    fillMunicipalityOptions(document.getElementById('municipalityIdsInput'));
+    fillMaintenanceStateOptions(defaultMaintenanceStateId());
+    fillDepartmentChecklist();
+    fillMunicipalityChecklist();
     document.getElementById('deleteEventBtn').classList.add('d-none');
 }
 
@@ -419,11 +635,10 @@ function openEditModal(eventData) {
     document.getElementById('descripcionInput').value = props.descripcion || '';
     document.getElementById('inicioInput').value = isoToInput(eventData.start);
     document.getElementById('finInput').value = isoToInput(eventData.end);
-    document.getElementById('estadoInput').value = props.estado || 'programado';
-    document.getElementById('colorInput').value = eventData.backgroundColor || eventData.color || '#1f6feb';
+    fillMaintenanceStateOptions(props.estado_mantenimiento_id || defaultMaintenanceStateId());
 
-    fillDepartmentOptions(document.getElementById('departmentIdsInput'), departmentIds);
-    fillMunicipalityOptions(document.getElementById('municipalityIdsInput'), departmentIds, municipalityIds);
+    fillDepartmentChecklist(departmentIds);
+    fillMunicipalityChecklist(departmentIds, municipalityIds);
 
     document.getElementById('deleteEventBtn').classList.remove('d-none');
     document.getElementById('corteModalTitle').textContent = 'Editar corte';
@@ -439,32 +654,25 @@ function renderRows(events) {
         return;
     }
 
-    const statusClass = {
-        programado: 'text-bg-primary',
-        activo: 'text-bg-success',
-        finalizado: 'text-bg-secondary',
-        cancelado: 'text-bg-danger',
-    };
-
     tbody.innerHTML = events.map((event) => {
         const props = event.extendedProps || {};
         const estado = String(props.estado || 'programado').toLowerCase();
+        const maintenanceKey = String(props.estado_mantenimiento_clave || '').toUpperCase();
+        const maintenanceName = String(props.estado_mantenimiento_nombre || estado);
+        const maintenanceColor = /^#[0-9a-f]{6}$/i.test(props.estado_mantenimiento_color || '')
+            ? props.estado_mantenimiento_color
+            : '#6c757d';
         const locations = Array.isArray(props.locations) ? props.locations : [];
         const locationsLabel = locations.length > 0
-            ? locations.map((item) => {
-                const dep = item.departamento || item.departamento_id || 'N/A';
-                const mun = item.municipio || '';
-                return mun ? `${dep} / ${mun}` : `${dep}`;
-            }).join('<br>')
-            : 'Sin ubicacion';
+            ? [...new Set(locations.map(item => item.departamento || item.departamento_id || 'N/A'))].join('<br>')
+            : 'Sin ubicación';
 
-        const statusIcon = { programado: 'bi-clock-history', activo: 'bi-lightning-charge-fill', finalizado: 'bi-check-circle-fill', cancelado: 'bi-x-circle-fill' };
         return `<tr class="corte-row estado-${estado}">
             <td>
                 <div class="fw-semibold">${event.title || ''}</div>
                 ${props.descripcion ? `<small class="text-secondary">${props.descripcion}</small>` : ''}
             </td>
-            <td><span class="badge ${statusClass[estado] || 'text-bg-secondary'}"><i class="bi ${statusIcon[estado] || 'bi-circle'} me-1"></i>${estado}</span></td>
+            <td><span class="badge" style="background-color:${maintenanceColor}">${maintenanceKey ? `${escapeMaintenanceStateHtml(maintenanceKey)} · ` : ''}${escapeMaintenanceStateHtml(maintenanceName)}</span></td>
             <td><span class="text-nowrap"><i class="bi bi-calendar-event me-1 text-primary opacity-75"></i>${formatDate(event.start)}</span></td>
             <td><span class="text-nowrap"><i class="bi bi-calendar-check me-1 text-danger opacity-75"></i>${formatDate(event.end)}</span></td>
             <td><small class="lh-sm">${locationsLabel}</small></td>
@@ -505,9 +713,13 @@ async function refreshCatalogs() {
     const result = await postEncrypted(endpoints.catalogs, {});
     state.departamentos = result?.data?.departamentos || [];
     state.municipios = result?.data?.municipios || [];
+    state.estadosMantenimiento = result?.data?.estados_mantenimiento || state.estadosMantenimiento;
 
-    fillDepartmentOptions(document.getElementById('departmentIdsInput'));
-    fillMunicipalityOptions(document.getElementById('municipalityIdsInput'));
+    fillMaintenanceStateOptions(document.getElementById('estadoMantenimientoInput').value || defaultMaintenanceStateId());
+    const selectedDepartments = selectedCheckboxValues(document.getElementById('departmentIdsInput'));
+    const selectedMunicipalities = selectedCheckboxValues(document.getElementById('municipalityIdsInput'));
+    fillDepartmentChecklist(selectedDepartments);
+    fillMunicipalityChecklist(selectedDepartments, selectedMunicipalities);
 
     const filterDepartment = document.getElementById('filterDepartment');
     const selectedFilterDepartment = Number(filterDepartment.value || 0);
@@ -528,10 +740,9 @@ async function saveEvent(event) {
         descripcion: document.getElementById('descripcionInput').value,
         fecha_inicio: document.getElementById('inicioInput').value.replace('T', ' '),
         fecha_fin: document.getElementById('finInput').value.replace('T', ' '),
-        estado: document.getElementById('estadoInput').value,
-        color: document.getElementById('colorInput').value,
-        department_ids: selectedValues(document.getElementById('departmentIdsInput')),
-        municipality_ids: selectedValues(document.getElementById('municipalityIdsInput')),
+        estado_mantenimiento_id: Number(document.getElementById('estadoMantenimientoInput').value || 0),
+        department_ids: selectedCheckboxValues(document.getElementById('departmentIdsInput')),
+        municipality_ids: selectedCheckboxValues(document.getElementById('municipalityIdsInput')),
     };
 
     const endpoint = id > 0 ? `${endpoints.updateBase}/${id}` : endpoints.store;
@@ -579,28 +790,24 @@ document.getElementById('deleteEventBtn').addEventListener('click', () => {
 });
 
 document.getElementById('departmentIdsInput').addEventListener('change', function () {
-    const municipalitySelect = document.getElementById('municipalityIdsInput');
-    const selectedDepartments = selectedValues(this);
-    const selectedMunicipalities = selectedValues(municipalitySelect);
-
-    fillMunicipalityOptions(municipalitySelect, selectedDepartments, selectedMunicipalities);
+    const selectedDepartments = selectedCheckboxValues(this);
+    const selectedMunicipalities = selectedCheckboxValues(document.getElementById('municipalityIdsInput'));
+    const selectedDepartmentSet = new Set(selectedDepartments.map((id) => String(id)));
+    const availableMunicipalityIds = state.municipios
+        .filter((municipio) => selectedDepartmentSet.has(String(municipio.departamento_id || '')))
+        .map((municipio) => Number(municipio.id));
+    const availableMunicipalitySet = new Set(availableMunicipalityIds);
+    fillMunicipalityChecklist(selectedDepartments, selectedMunicipalities.filter((id) => availableMunicipalitySet.has(id)));
 });
 
 document.getElementById('municipalityIdsInput').addEventListener('change', function () {
-    const departmentSelect = document.getElementById('departmentIdsInput');
-    const municipalitySelect = this;
-    const selectedMunicipalities = selectedValues(municipalitySelect);
-
-    if (selectedMunicipalities.length === 0) {
-        return;
-    }
-
-    const selectedDepartments = selectedValues(departmentSelect);
+    const selectedMunicipalities = selectedCheckboxValues(this);
+    const selectedDepartments = selectedCheckboxValues(document.getElementById('departmentIdsInput'));
     const departmentsFromMunicipalities = departmentIdsFromMunicipalityIds(selectedMunicipalities);
     const mergedDepartments = Array.from(new Set([...selectedDepartments, ...departmentsFromMunicipalities]));
 
-    fillDepartmentOptions(departmentSelect, mergedDepartments);
-    fillMunicipalityOptions(municipalitySelect, mergedDepartments, selectedMunicipalities);
+    fillDepartmentChecklist(mergedDepartments);
+    fillMunicipalityChecklist(mergedDepartments, selectedMunicipalities);
 });
 
 document.getElementById('filterDepartment').addEventListener('change', function () {
@@ -609,6 +816,7 @@ document.getElementById('filterDepartment').addEventListener('change', function 
 });
 
 (async function boot() {
+    fillMaintenanceStateOptions(defaultMaintenanceStateId());
     await refreshCatalogs();
     await loadRows();
 })();

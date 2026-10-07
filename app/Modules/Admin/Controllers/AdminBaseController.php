@@ -74,6 +74,7 @@ abstract class AdminBaseController extends BaseController
             ['label' => 'Migraciones', 'icon' => 'bi-database-gear', 'url' => site_url('admin/migraciones'), 'permission' => 'admin.migrations.view'],
             ['label' => 'Logs', 'icon' => 'bi-journal-text', 'url' => site_url('admin/logs'), 'permission' => 'admin.logs.view'],
             ['label' => 'Carga masiva', 'icon' => 'bi-cloud-upload', 'url' => site_url('admin/uploads'), 'permission' => 'admin.uploads.view'],
+            ['label' => 'Actualizaciones', 'icon' => 'bi-box-seam', 'url' => site_url('admin/update'), 'permission' => 'admin.auto_update.view'],
         ];
 
         foreach ($navDefinitions as $item) {

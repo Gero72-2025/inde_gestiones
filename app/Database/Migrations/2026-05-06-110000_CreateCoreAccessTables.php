@@ -205,7 +205,7 @@ class CreateCoreAccessTables extends Migration
                     'gerencia_id' => $gerenciaId,
                     'username' => 'superadmin',
                     'email' => 'admin@portal-inde.local',
-                    'password' => '$2y$10$Emi6M6exgE5vF4jxzZY5OwWYp6bUE0V8mezCCL7yh.mBxJHGFZi.',
+                    'password' => '$2y$10$9xqWD21AfAPwrCfWAoWx1Ol5mF5peGxlrD/pjji7t/G6/hFR74Qa.',
                     'first_name' => 'Super',
                     'last_name' => 'Administrador',
                     'status' => 'active',

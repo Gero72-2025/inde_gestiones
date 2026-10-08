@@ -1,7 +1,7 @@
 uploads/
 debugbar/
 logs/
-session/
+/writable/session/
 .env
 vendor/
 writable/

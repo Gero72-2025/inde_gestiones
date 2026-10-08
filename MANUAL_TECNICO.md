@@ -300,20 +300,31 @@ Antes de ejecutar `ecoe:estandarizar-referencias`, realizar respaldo: el comando
 
 3. Instale las dependencias PHP bloqueadas:
 
+    ```bat
+    composer install
+    ```
+    Si Composer no está en `PATH`, use el ejecutable instalado en su equipo o el `composer.phar` incluido en el repositorio:
+
    ```bat
-   composer install
+    C:\xampp\php\php.exe composer.phar install
    ```
 
-   Si Composer no está en `PATH`, use el ejecutable instalado en su equipo. El repositorio también contiene `composer.phar`, que puede invocarse con PHP 8.2.
+4. Elija **una** de estas rutas para configurar el entorno y aplicar las migraciones:
 
-4. Cree `.env` en la raíz y configure, como mínimo, `CI_ENVIRONMENT`, `app.baseURL`, `database.default.*`, `database.ecoe.*` si aplica y `security.ajaxCipherKey`. No use en producción la contraseña vacía de `root` ni la clave de ejemplo.
+    - **Instalador web:** abra `http://localhost/portal-inde/public/auto_installer.php` desde el mismo equipo. Complete URL base, conexión MySQL, clave AJAX y emisor TOTP; el instalador crea `.env` y ejecuta migraciones cuando se crea o cambia la configuración. Puede crear la base si aún no existe.
+    - **CLI:** antes de ejecutar cualquier comando `spark`, cree `.env` en la raíz del proyecto y configure `CI_ENVIRONMENT`, `app.baseURL`, `database.default.*`, `security.ajaxCipherKey` y, si aplica, `database.ecoe.*`. Cree también la base MySQL/MariaDB y use credenciales de mínimo privilegio. **No ejecute `spark migrate` sin haber creado y configurado primero `.env`.**
 
-5. Configure una base de datos MySQL/MariaDB y las credenciales de mínimo privilegio. Antes de usar una base vacía, revise el estado de la migración base RBAC descrito en **Estado del esquema base y bootstrap limpio**; no ejecute archivos `.sql` manualmente.
+    No use en producción la contraseña vacía de `root` ni una clave AJAX de ejemplo. El document root debe apuntar a `public/`.
 
-6. En una base ya aprovisionada, ejecute migraciones, catálogo y permisos:
+5. Si eligió CLI, ejecute desde la raíz y solo después de crear `.env`:
 
-   ```bat
+    ```bat
    C:\xampp\php\php.exe spark migrate
+    ```
+
+6. Después de cualquiera de las dos rutas, complete los catálogos y sincronice permisos:
+
+    ```bat
    C:\xampp\php\php.exe spark db:seed CatalogoUbicacionesSeeder
    C:\xampp\php\php.exe spark sync:permissions
    ```
@@ -328,7 +339,7 @@ Antes de ejecutar `ecoe:estandarizar-referencias`, realizar respaldo: el comando
 
 ### Instalación local con el instalador web
 
-`public/auto_installer.php` es una alternativa para configurar `.env` y solicitar la ejecución de migraciones desde un navegador local. No sustituye la preparación de una base vacía ni los pasos de catálogo/permisos:
+`public/auto_installer.php` configura `.env`, puede crear la base MySQL/MariaDB y solicita las migraciones desde un navegador local. No ejecuta el seeder de ubicaciones ni `sync:permissions`; esos pasos se realizan después desde CLI.
 
 1. Instale dependencias y prepare la base MySQL/MariaDB con un usuario de mínimo privilegio. El usuario necesita permiso para crear la base si todavía no existe.
 2. En XAMPP, abra `http://localhost/portal-inde/public/auto_installer.php`. El instalador solo acepta conexiones desde `127.0.0.1` o `::1`; abrirlo desde otro equipo devuelve `403`.
@@ -337,7 +348,7 @@ Antes de ejecutar `ecoe:estandarizar-referencias`, realizar respaldo: el comando
 5. En una base que ya tenga el esquema requerido, ejecuta `php spark db:seed CatalogoUbicacionesSeeder` y `php spark sync:permissions` desde la raíz, o sus comandos equivalentes con `C:\xampp\php\php.exe` en XAMPP.
 6. Marca **Renombrar y deshabilitar este instalador** solo cuando todos los pasos finalicen sin errores. Después confirma que `public/auto_installer.php` fue renombrado o elimínalo manualmente.
 
-El instalador no convierte los archivos SQL de referencia en un bootstrap autorizado. El estado de migración base descrito en **Estado del esquema base y bootstrap limpio** sigue aplicando: `spark migrate` no garantiza por sí solo una base vacía totalmente inicializada. No expongas ni habilites el instalador en un servidor público.
+El instalador no ejecuta ni importa los archivos SQL de referencia. Las migraciones versionadas son el mecanismo autorizado para inicializar el esquema. No expongas ni habilites el instalador en un servidor público.
 
 ### Actualizar desde el módulo Admin
 
@@ -498,7 +509,7 @@ Para SQL Server, valide que el puerto `1433` sea accesible y que el driver `sqls
 | No se puede escribir en caché, sesiones o uploads | Ajuste permisos/ACL de `writable/` y compruebe `writable/logs/`. |
 | Fallo de conexión MySQL | Revise `database.default.*`, que MySQL esté iniciado y que la base exista y sea accesible para el usuario de aplicación. |
 | Fallo de conexión ECOE | Revise red hacia el servidor SQL Server, `sqlsrv`/`pdo_sqlsrv`, puerto 1433, nombre de base y credenciales. |
-| Tablas `users` o `roles` inexistentes | Compruebe `php spark migrate:status`. El repositorio aún requiere una migración base RBAC para bootstrap limpio; no ejecute `inde_core_schema.sql` manualmente como workaround. |
+| Tablas `users` o `roles` inexistentes | Confirme que `.env` apunta a la base correcta y compruebe `php spark migrate:status`; después de corregir la conexión, ejecute las migraciones pendientes. No ejecute `inde_core_schema.sql` manualmente como workaround. |
 | Migración falla por tabla existente | Haga respaldo, revise `php spark migrate:status` y determine si la base fue inicializada con un esquema parcial. No borre tablas en producción para forzar la migración. |
 | Login/2FA no funciona | Compruebe tablas RBAC, hora del servidor, `security.totpIssuer`, la sesión escribible y que el usuario tenga roles/permisos. |
 | `ERR_TOO_MANY_REDIRECTS` entre `/login` y `/admin` | Confirme que `baseURL`, host y protocolo coincidan y que el navegador conserve `ci_session`. Revise `session('auth')`, 2FA pendiente y que el destino de login corresponda a un permiso que el filtro acepta. Elimine cookies antiguas del host después de corregir configuración. |

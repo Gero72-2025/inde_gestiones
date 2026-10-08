@@ -278,7 +278,7 @@ function installerRunMigrations(string $projectRoot): array
     $beforeOutput = preg_replace('/\x1B\[[0-?]*[ -\/]*[@-~]/', '', trim($beforeOutput)) ?? trim($beforeOutput);
     $migrateOutput = preg_replace('/\x1B\[[0-?]*[ -\/]*[@-~]/', '', trim($migrateOutput)) ?? trim($migrateOutput);
     $afterOutput = preg_replace('/\x1B\[[0-?]*[ -\/]*[@-~]/', '', trim($afterOutput)) ?? trim($afterOutput);
-    $hasMigrationError = preg_match('/Migration failed!|Fatal error:|Uncaught (?:Error|Exception)|(?:Runtime)?Exception:|ErrorException|Error:/i', $migrateOutput) === 1;
+    $hasMigrationError = preg_match('/Migration failed!|Fatal error:|Uncaught (?:Error|Exception)|(?:Runtime)?Exception:|ErrorException|Error:|SQLSTATE\[|Query error:|foreign key constraint fails/i', $migrateOutput) === 1;
     $success = $migrateExit === 0 && $afterExit === 0 && ! $hasMigrationError;
     $details = [];
 

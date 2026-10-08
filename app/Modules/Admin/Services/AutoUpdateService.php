@@ -3,6 +3,7 @@
 namespace App\Modules\Admin\Services;
 
 use CodeIgniter\Database\MigrationRunner;
+use CodeIgniter\Database\RawSql;
 use Config\Database;
 use RuntimeException;
 use ZipArchive;
@@ -37,10 +38,7 @@ class AutoUpdateService
             'tables' => $tables,
             'preview_limit' => self::PREVIEW_ROWS,
             'max_selected_records' => self::MAX_SELECTED_RECORDS,
-            'migration_files' => array_map('basename', $this->collectModuleMigrations($module['name'])),
-            'migrations' => count($this->collectModuleMigrations($module['name'])),
-            'data_mode' => $module['admin_update_only'] ? 'update_existing' : 'insert_missing',
-            'update_only' => $module['admin_update_only'],
+            'data_mode' => 'insert_missing',
         ];
     }
 
@@ -124,7 +122,6 @@ class AutoUpdateService
                 'name' => $id,
                 'label' => $definition['label'],
                 'table_count' => $tableCount,
-                'admin_update_only' => true,
             ];
         }
 
@@ -153,7 +150,7 @@ class AutoUpdateService
                 'format' => 'inde-module-data',
                 'format_version' => 1,
                 'module_id' => $module['id'],
-                'data_mode' => $module['admin_update_only'] ? 'update_existing' : 'insert_missing',
+                'data_mode' => 'insert_missing',
                 'tables' => $selectionResult['tables'],
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         }
@@ -200,7 +197,7 @@ class AutoUpdateService
                 'name' => $module['name'],
                 'version' => '1.0.0',
                 'dependencies' => ['php >=8.1', 'codeigniter4/framework'],
-                'data_mode' => $module['admin_update_only'] ? 'update_existing' : 'insert_missing',
+                'data_mode' => 'insert_missing',
             ],
             'generated_at' => date(DATE_ATOM),
             'data_summary' => $selectionResult === null ? null : [
@@ -271,9 +268,11 @@ class AutoUpdateService
         try {
             $manifest = $this->readAndValidateManifest($zip);
             $module = $this->resolveModuleIdFromManifest($manifest);
-            $expectedDataMode = ! empty($module['admin_update_only']) ? 'update_existing' : 'insert_missing';
             $declaredDataMode = (string) ($manifest['module']['data_mode'] ?? 'insert_missing');
-            if ($declaredDataMode !== $expectedDataMode) {
+            $allowedDataModes = isset(self::ADMIN_DATA_MODULES[$module['id']])
+                ? ['insert_missing', 'update_existing']
+                : ['insert_missing'];
+            if (! in_array($declaredDataMode, $allowedDataModes, true)) {
                 throw new RuntimeException('La politica de datos del paquete no coincide con la política permitida para este módulo.');
             }
             $entries = $this->validateArchiveEntries($zip, $manifest, $module);
@@ -345,7 +344,7 @@ class AutoUpdateService
             }
             $dataPath = $stage . DIRECTORY_SEPARATOR . 'package-data' . DIRECTORY_SEPARATOR . 'data.json';
             if (is_file($dataPath)) {
-                foreach ($this->importPackageData($dataPath, $module['id']) as $dataResult) {
+                foreach ($this->importPackageData($dataPath, $module['id'], $declaredDataMode) as $dataResult) {
                     $report[] = $dataResult;
                 }
             }
@@ -396,10 +395,6 @@ class AutoUpdateService
             if (is_dir($assetRoot)) {
                 $this->collectDirectory($assetRoot, 'public/' . $assetPath, $files);
             }
-        }
-
-        foreach ($this->collectModuleMigrations($moduleId) as $path) {
-            $files['app/Database/Migrations/' . basename($path)] = $path;
         }
 
         ksort($files);
@@ -513,20 +508,6 @@ class AutoUpdateService
             'pages' => $pages,
             'rows' => $preview,
         ];
-    }
-
-    private function collectModuleMigrations(string $moduleName): array
-    {
-        $directory = APPPATH . 'Database' . DIRECTORY_SEPARATOR . 'Migrations';
-        $migrations = [];
-        $moduleToken = preg_replace('/[^a-z0-9]/', '', strtolower($moduleName));
-        foreach (glob($directory . DIRECTORY_SEPARATOR . '*.php') ?: [] as $path) {
-            $migrationToken = preg_replace('/[^a-z0-9]/', '', strtolower(basename($path)));
-            if (str_contains($migrationToken, $moduleToken) && is_file($path) && ! is_link($path)) {
-                $migrations[] = $path;
-            }
-        }
-        return $migrations;
     }
 
     private function readSelectedRows(string $moduleId, array $selection): array
@@ -732,7 +713,7 @@ class AutoUpdateService
     private function resolveReferencedFile(string $moduleId, string $value): ?array
     {
         $path = str_replace('\\', '/', trim($value));
-        if ($path === '' || str_contains($path, "\0")) {
+        if ($path === '' || str_contains($path, "\0") || str_contains(strtolower($path), '.php')) {
             return null;
         }
         if (preg_match('#^[a-z]:/#i', $path) || str_starts_with($path, '/')) {
@@ -806,18 +787,18 @@ class AutoUpdateService
         return $candidate;
     }
 
-    private function importPackageData(string $dataPath, string $moduleId): array
+    private function importPackageData(string $dataPath, string $moduleId, string $expectedDataMode): array
     {
         $raw = file_get_contents($dataPath);
         $data = is_string($raw) ? json_decode($raw, true) : null;
         if (! is_array($data) || ($data['format'] ?? '') !== 'inde-module-data' || (int) ($data['format_version'] ?? 0) !== 1 || ($data['module_id'] ?? '') !== $moduleId || ! is_array($data['tables'] ?? null)) {
             throw new RuntimeException('El archivo package-data/data.json no es valido para este modulo.');
         }
-        $updateOnly = isset(self::ADMIN_DATA_MODULES[$moduleId]);
-        $expectedMode = $updateOnly ? 'update_existing' : 'insert_missing';
-        if (($data['data_mode'] ?? 'insert_missing') !== $expectedMode) {
+        $dataMode = (string) ($data['data_mode'] ?? 'insert_missing');
+        if ($dataMode !== $expectedDataMode) {
             throw new RuntimeException('El modo de actualización de data.json no está permitido para este módulo.');
         }
+        $updateOnly = $dataMode === 'update_existing';
 
         $allowedTables = $this->moduleTables($moduleId);
         $db = db_connect();
@@ -847,84 +828,104 @@ class AutoUpdateService
                 }
             }
         }
-        $db->transBegin();
+        $db->transStart();
+        $transactionCompleted = false;
         try {
-            foreach ($this->orderTablesByDependencies($data['tables']) as $tableBundle) {
-                $table = (string) ($tableBundle['name'] ?? '');
-                $columnNames = $db->getFieldNames($table);
-                $added = 0;
-                $updated = 0;
-                $omitted = 0;
-                $omittedForeignKeys = [];
-                foreach ($tableBundle['rows'] as $row) {
-                    if (! is_array($row) || $row === [] || array_diff(array_keys($row), $columnNames) !== []) {
-                        throw new RuntimeException('Registro incompatible con el esquema de ' . $table . '.');
-                    }
-                    if ($moduleId === 'admin-usuarios' && array_filter(array_keys($row), fn (string $column): bool => $this->isSensitiveColumn($column)) !== []) {
-                        throw new RuntimeException('El paquete de usuarios incluye un campo secreto no permitido.');
-                    }
-                    foreach ($row as $value) {
-                        if (! is_scalar($value) && $value !== null) {
-                            throw new RuntimeException('Un valor de ' . $table . ' no es escalar ni null.');
+            $importException = null;
+            try {
+                $this->setForeignKeyChecks($db, false);
+                foreach ($this->orderTablesByDependencies($data['tables']) as $tableBundle) {
+                    $table = (string) ($tableBundle['name'] ?? '');
+                    $columnNames = $db->getFieldNames($table);
+                    $added = 0;
+                    $updated = 0;
+                    $omitted = 0;
+                    foreach ($tableBundle['rows'] as $row) {
+                        if (! is_array($row) || $row === [] || array_diff(array_keys($row), $columnNames) !== []) {
+                            throw new RuntimeException('Registro incompatible con el esquema de ' . $table . '.');
                         }
-                    }
-                    if ($moduleId === 'etcee' && isset($row['ruta_archivo']) && is_string($row['ruta_archivo']) && str_starts_with($row['ruta_archivo'], 'uploads/sni_kmz/')) {
-                        $row['ruta_archivo'] = WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, $row['ruta_archivo']);
-                    }
-                    $existing = $this->findExistingRecord($table, $row);
-                    if ($updateOnly) {
-                        if ($existing === null) {
-                            $omitted++;
-                            continue;
+                        if ($moduleId === 'admin-usuarios' && array_filter(array_keys($row), fn (string $column): bool => $this->isSensitiveColumn($column)) !== []) {
+                            throw new RuntimeException('El paquete de usuarios incluye un campo secreto no permitido.');
                         }
-                        $primaryKeys = [];
-                        foreach ($db->getIndexData($table) as $index) {
-                            if (($index->type ?? '') === 'PRIMARY') {
-                                $primaryKeys = (array) ($index->fields ?? []);
-                                break;
+                        foreach ($row as $value) {
+                            if (! is_scalar($value) && $value !== null) {
+                                throw new RuntimeException('Un valor de ' . $table . ' no es escalar ni null.');
                             }
                         }
-                        $updates = array_diff_key($row, array_flip($primaryKeys));
-                        [$updates, $rowOmittedForeignKeys] = $this->filterUnavailableForeignKeys($table, $updates);
-                        $omittedForeignKeys = array_merge($omittedForeignKeys, $rowOmittedForeignKeys);
-                        if ($updates === []) {
+                        if ($moduleId === 'etcee' && isset($row['ruta_archivo']) && is_string($row['ruta_archivo']) && str_starts_with($row['ruta_archivo'], 'uploads/sni_kmz/')) {
+                            $row['ruta_archivo'] = WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, $row['ruta_archivo']);
+                        }
+                        $existing = $this->findExistingRecord($table, $row);
+                        if ($existing === null && $updateOnly) {
                             $omitted++;
                             continue;
                         }
-                        $builder = $db->table($table);
-                        foreach ($primaryKeys as $primaryKey) {
-                            $builder->where($primaryKey, $existing[$primaryKey]);
+                        if ($existing !== null) {
+                            $primaryKeys = $this->primaryKeyFields($db, $table);
+                            $updates = array_diff_key($row, array_flip($primaryKeys));
+                            if ($updates === []) {
+                                $omitted++;
+                                continue;
+                            }
+                            $builder = $db->table($table);
+                            foreach ($primaryKeys as $primaryKey) {
+                                $builder->where($primaryKey, $existing[$primaryKey]);
+                            }
+                            if (! $builder->update($updates)) {
+                                throw new RuntimeException('CI4 no pudo actualizar un registro existente en ' . $table . '.');
+                            }
+                            if ($db->affectedRows() > 0) {
+                                $updated++;
+                            } else {
+                                $omitted++;
+                            }
+                            continue;
                         }
-                        if (! $builder->update($updates)) {
-                            throw new RuntimeException('CI4 no pudo actualizar un registro existente en ' . $table . '.');
+                        $insertResult = $this->insertMissingRecord($db, $table, $row);
+                        if ($insertResult === 'inserted') {
+                            $added++;
+                        } elseif ($insertResult === 'updated') {
+                            $updated++;
+                        } else {
+                            $omitted++;
                         }
-                        $updated++;
-                        continue;
                     }
-                    if ($existing !== null) {
-                        $omitted++;
-                        continue;
-                    }
-                    if (! $db->table($table)->insert($row)) {
-                        throw new RuntimeException('CI4 no pudo insertar un registro en ' . $table . '.');
-                    }
-                    $added++;
+                    $status = $updated > 0 || $added > 0 ? 'success' : 'omitted';
+                    $message = $updateOnly
+                        ? $updated . ' registros actualizados; ' . $omitted . ' omitidos porque no existían en destino.'
+                        : $added . ' registros insertados; ' . $updated . ' actualizados; ' . $omitted . ' sin cambios.';
+                    $report[] = ['status' => $status, 'path' => $table, 'message' => $message];
                 }
-                $status = $updated > 0 || $added > 0 ? 'success' : 'omitted';
-                $message = $updateOnly
-                    ? $updated . ' registros actualizados; ' . $omitted . ' omitidos porque no existían en destino.'
-                    : $added . ' registros insertados; ' . $omitted . ' omitidos por clave existente.';
-                if ($omittedForeignKeys !== []) {
-                    $message .= ' Se conservaron relaciones destino por referencias ausentes: ' . implode('; ', array_unique($omittedForeignKeys)) . '.';
+                if ($db->transStatus() === false) {
+                    throw new RuntimeException('La transaccion de datos fue rechazada por la base de datos.');
                 }
-                $report[] = ['status' => $status, 'path' => $table, 'message' => $message];
+            } catch (\Throwable $exception) {
+                $importException = $exception;
+            } finally {
+                try {
+                    $this->setForeignKeyChecks($db, true);
+                } catch (\Throwable $exception) {
+                    if ($importException === null) {
+                        $importException = $exception;
+                    } else {
+                        log_message('error', 'Could not restore database foreign key checks after import failure: {message}', [
+                            'message' => $exception->getMessage(),
+                        ]);
+                    }
+                }
             }
-            if ($db->transStatus() === false) {
+            if ($importException !== null) {
+                throw $importException;
+            }
+            $completed = $db->transComplete();
+            $transactionCompleted = true;
+            if (! $completed) {
                 throw new RuntimeException('La transaccion de datos fue rechazada por la base de datos.');
             }
-            $db->transCommit();
         } catch (\Throwable $exception) {
-            $db->transRollback();
+            if (! $transactionCompleted) {
+                $db->transRollback();
+            }
             throw $exception;
         }
 
@@ -935,7 +936,7 @@ class AutoUpdateService
     {
         $db = db_connect();
         $indexes = $db->getIndexData($table);
-        usort($indexes, static fn ($left, $right): int => (($left->type ?? '') === 'PRIMARY' ? 1 : 0) <=> (($right->type ?? '') === 'PRIMARY' ? 1 : 0));
+        usort($indexes, static fn ($left, $right): int => (($right->type ?? '') === 'PRIMARY' ? 1 : 0) <=> (($left->type ?? '') === 'PRIMARY' ? 1 : 0));
 
         foreach ($indexes as $index) {
             if (! in_array((string) ($index->type ?? ''), ['PRIMARY', 'UNIQUE'], true) || ! is_array($index->fields ?? null)) {
@@ -964,42 +965,55 @@ class AutoUpdateService
         return null;
     }
 
-    private function filterUnavailableForeignKeys(string $table, array $updates): array
+    private function primaryKeyFields($db, string $table): array
     {
-        $db = db_connect();
-        $omitted = [];
-
-        foreach ($db->getForeignKeyData($table) as $foreignKey) {
-            $localColumns = (array) ($foreignKey->column_name ?? []);
-            $foreignColumns = (array) ($foreignKey->foreign_column_name ?? []);
-            $foreignTable = (string) ($foreignKey->foreign_table_name ?? '');
-            if ($localColumns === [] || count($localColumns) !== count($foreignColumns) || $foreignTable === '') {
-                continue;
-            }
-            if (array_diff($localColumns, array_keys($updates)) !== []) {
-                continue;
-            }
-
-            $parentQuery = $db->table($foreignTable);
-            $hasNullReference = false;
-            foreach ($localColumns as $index => $localColumn) {
-                $value = $updates[$localColumn];
-                if ($value === null) {
-                    $hasNullReference = true;
-                    break;
-                }
-                $parentQuery->where($foreignColumns[$index], $value);
-            }
-
-            if (! $hasNullReference && $parentQuery->countAllResults() === 0) {
-                foreach ($localColumns as $localColumn) {
-                    unset($updates[$localColumn]);
-                }
-                $omitted[] = implode(', ', $localColumns) . ' -> ' . $foreignTable;
+        foreach ($db->getIndexData($table) as $index) {
+            if (($index->type ?? '') === 'PRIMARY') {
+                return (array) ($index->fields ?? []);
             }
         }
 
-        return [$updates, $omitted];
+        return [];
+    }
+
+    private function setForeignKeyChecks($db, bool $enabled): void
+    {
+        if (strtolower($db->getPlatform()) !== 'mysqli') {
+            return;
+        }
+
+        if ($db->query('SET FOREIGN_KEY_CHECKS = ' . ($enabled ? '1' : '0')) === false) {
+            throw new RuntimeException('No fue posible cambiar temporalmente las restricciones de claves foraneas.');
+        }
+    }
+
+    private function insertMissingRecord($db, string $table, array $row): string
+    {
+        if (strtolower($db->getPlatform()) !== 'mysqli') {
+            if (! $db->table($table)->insert($row)) {
+                throw new RuntimeException('CI4 no pudo insertar un registro en ' . $table . '.');
+            }
+            return 'inserted';
+        }
+
+        $primaryKeys = $this->primaryKeyFields($db, $table);
+        $updateFields = array_values(array_diff(array_keys($row), $primaryKeys));
+        $builder = $db->table($table);
+        if ($updateFields === []) {
+            $primaryKey = $primaryKeys[0] ?? array_key_first($row);
+            $builder->updateFields([$primaryKey => new RawSql($db->protectIdentifiers($primaryKey))]);
+        } else {
+            $builder->updateFields($updateFields);
+        }
+        if ($builder->upsert($row) === false) {
+            throw new RuntimeException('CI4 no pudo insertar un registro en ' . $table . '.');
+        }
+
+        return match (true) {
+            $db->affectedRows() === 1 => 'inserted',
+            $db->affectedRows() > 1 => 'updated',
+            default => 'unchanged',
+        };
     }
 
     private function collectDirectory(string $root, string $packageRoot, array &$files): void
@@ -1022,6 +1036,9 @@ class AutoUpdateService
                 continue;
             }
             $packagePath = $packageRoot . '/' . str_replace(DIRECTORY_SEPARATOR, '/', $relative);
+            if (str_contains(strtolower($packagePath), '.php')) {
+                continue;
+            }
             $this->validatePackagePath($packagePath);
             $files[$packagePath] = $file->getPathname();
         }
@@ -1095,7 +1112,7 @@ class AutoUpdateService
 
     private function validatePackagePath(string $path): void
     {
-        if ($path === '' || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/') || preg_match('/^[a-zA-Z]:/', $path)) {
+        if ($path === '' || str_contains(strtolower($path), '.php') || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/') || preg_match('/^[a-zA-Z]:/', $path)) {
             throw new RuntimeException('El paquete contiene una ruta no permitida.');
         }
         foreach (explode('/', $path) as $segment) {
@@ -1128,14 +1145,6 @@ class AutoUpdateService
         };
         foreach ($uploadPrefixes as $uploadPrefix) {
             if (str_starts_with($path, $uploadPrefix)) {
-                return;
-            }
-        }
-        if (str_starts_with($path, 'app/Database/Migrations/')) {
-            $filename = strtolower(basename($path));
-            $migrationToken = preg_replace('/[^a-z0-9]/', '', $filename);
-            $moduleToken = preg_replace('/[^a-z0-9]/', '', $module['id']);
-            if (str_contains($migrationToken, $moduleToken) && preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}_[a-z0-9_-]+\.php$/', $filename)) {
                 return;
             }
         }
@@ -1216,13 +1225,11 @@ class AutoUpdateService
                         'label' => self::ADMIN_DATA_MODULES[strtolower($moduleId)]['label'],
                         'source_name' => 'Admin',
                         'table_count' => $module['table_count'],
-                        'admin_update_only' => true,
                     ];
                 }
                 return array_merge($module, [
                     'label' => $module['name'],
                     'source_name' => $module['name'],
-                    'admin_update_only' => false,
                 ]);
             }
         }

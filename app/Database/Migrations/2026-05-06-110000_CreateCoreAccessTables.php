@@ -144,80 +144,132 @@ class CreateCoreAccessTables extends Migration
 
     private function seedCoreData(): void
     {
-        $this->db->table('gerencias')->ignore(true)->insert([
-            'nombre' => 'Gerencia Gero',
-            'descripcion' => 'Modulo base de ejemplo para nuevas gerencias.',
-            'slug' => 'gero',
-            'status' => 'active',
-        ]);
-
-        $roles = [
-            ['nombre' => 'Super Administrador', 'descripcion' => 'Acceso transversal a todas las gerencias y configuraciones.'],
-            ['nombre' => 'Administrador de Gerencia', 'descripcion' => 'Administra contenido y usuarios de una gerencia concreta.'],
-            ['nombre' => 'Editor', 'descripcion' => 'Puede editar contenido dentro de su gerencia.'],
-            ['nombre' => 'Lector', 'descripcion' => 'Acceso de lectura a la informacion publicada.'],
-        ];
-
-        foreach ($roles as $role) {
-            $this->db->table('roles')->ignore(true)->insert($role);
+        if (! $this->db->transBegin()) {
+            throw new \RuntimeException('No fue posible iniciar la transacción de datos iniciales.');
         }
 
-        $permissions = [
-            ['nombre' => 'Acceso transversal a gerencias', 'slug' => 'gerencias.all.access', 'descripcion' => 'Permite ingresar a cualquier modulo de gerencia.'],
-            ['nombre' => 'Acceso total del sistema', 'slug' => 'superadmin.access', 'descripcion' => 'Permite ignorar restricciones de modulo.'],
-            ['nombre' => 'Acceso al modulo Gero', 'slug' => 'gerencia.gero.access', 'descripcion' => 'Permite acceder al modulo de la Gerencia Gero.'],
-            ['nombre' => 'Gestionar 2FA', 'slug' => 'security.2fa.manage', 'descripcion' => 'Permite administrar la configuracion de doble factor.'],
-        ];
-
-        foreach ($permissions as $permission) {
-            $this->db->table('permissions')->ignore(true)->insert($permission);
-        }
-
-        $gerenciaId = $this->findId('gerencias', 'slug', 'gero');
-        $superAdminRoleId = $this->findId('roles', 'nombre', 'Super Administrador');
-        $managerRoleId = $this->findId('roles', 'nombre', 'Administrador de Gerencia');
-
-        foreach (['gerencias.all.access', 'superadmin.access', 'gerencia.gero.access', 'security.2fa.manage'] as $slug) {
-            $permissionId = $this->findId('permissions', 'slug', $slug);
-
-            if ($superAdminRoleId !== null && $permissionId !== null) {
-                $this->db->table('role_permissions')->ignore(true)->insert([
-                    'role_id' => $superAdminRoleId,
-                    'permission_id' => $permissionId,
-                ]);
-            }
-
-            if ($managerRoleId !== null && $permissionId !== null && in_array($slug, ['gerencia.gero.access', 'security.2fa.manage'], true)) {
-                $this->db->table('role_permissions')->ignore(true)->insert([
-                    'role_id' => $managerRoleId,
-                    'permission_id' => $permissionId,
-                ]);
-            }
-        }
-
-        if ($gerenciaId === null) {
-            return;
-        }
-
-        $this->db->table('users')->ignore(true)->insert([
-            'gerencia_id' => $gerenciaId,
-            'username' => 'superadmin',
-            'email' => 'admin@portal-inde.local',
-            'password' => '$2y$10$Emi6M6exgE5v/F4jxzZY5OwWYp6bUE0V8mezCCL7yh.mBxJHGFZi.',
-            'first_name' => 'Super',
-            'last_name' => 'Administrador',
-            'status' => 'active',
-            'twofa_enabled' => 0,
-        ]);
-
-        $userId = $this->findId('users', 'username', 'superadmin');
-
-        if ($userId !== null && $superAdminRoleId !== null) {
-            $this->db->table('user_roles')->ignore(true)->insert([
-                'user_id' => $userId,
-                'role_id' => $superAdminRoleId,
+        try {
+            $this->insertSeedRow('gerencias', [
+                'nombre' => 'Gerencia Gero',
+                'descripcion' => 'Modulo base de ejemplo para nuevas gerencias.',
+                'slug' => 'gero',
+                'status' => 'active',
             ]);
+
+            $roles = [
+                ['nombre' => 'Super Administrador', 'descripcion' => 'Acceso transversal a todas las gerencias y configuraciones.'],
+                ['nombre' => 'Administrador de Gerencia', 'descripcion' => 'Administra contenido y usuarios de una gerencia concreta.'],
+                ['nombre' => 'Editor', 'descripcion' => 'Puede editar contenido dentro de su gerencia.'],
+                ['nombre' => 'Lector', 'descripcion' => 'Acceso de lectura a la informacion publicada.'],
+            ];
+
+            foreach ($roles as $role) {
+                $this->insertSeedRow('roles', $role);
+            }
+
+            $permissions = [
+                ['nombre' => 'Acceso transversal a gerencias', 'slug' => 'gerencias.all.access', 'descripcion' => 'Permite ingresar a cualquier modulo de gerencia.'],
+                ['nombre' => 'Acceso total del sistema', 'slug' => 'superadmin.access', 'descripcion' => 'Permite ignorar restricciones de modulo.'],
+                ['nombre' => 'Acceso al modulo Gero', 'slug' => 'gerencia.gero.access', 'descripcion' => 'Permite acceder al modulo de la Gerencia Gero.'],
+                ['nombre' => 'Gestionar 2FA', 'slug' => 'security.2fa.manage', 'descripcion' => 'Permite administrar la configuracion de doble factor.'],
+            ];
+
+            foreach ($permissions as $permission) {
+                $this->insertSeedRow('permissions', $permission);
+            }
+
+            $gerenciaId = $this->findId('gerencias', 'slug', 'gero');
+            $superAdminRoleId = $this->findId('roles', 'nombre', 'Super Administrador');
+            $managerRoleId = $this->findId('roles', 'nombre', 'Administrador de Gerencia');
+
+            foreach (['gerencias.all.access', 'superadmin.access', 'gerencia.gero.access', 'security.2fa.manage'] as $slug) {
+                $permissionId = $this->findId('permissions', 'slug', $slug);
+
+                if ($superAdminRoleId !== null && $permissionId !== null) {
+                    $this->insertSeedRow('role_permissions', [
+                        'role_id' => $superAdminRoleId,
+                        'permission_id' => $permissionId,
+                    ]);
+                }
+
+                if ($managerRoleId !== null && $permissionId !== null && in_array($slug, ['gerencia.gero.access', 'security.2fa.manage'], true)) {
+                    $this->insertSeedRow('role_permissions', [
+                        'role_id' => $managerRoleId,
+                        'permission_id' => $permissionId,
+                    ]);
+                }
+            }
+
+            if ($gerenciaId !== null) {
+                $this->insertSeedRow('users', [
+                    'gerencia_id' => $gerenciaId,
+                    'username' => 'superadmin',
+                    'email' => 'admin@portal-inde.local',
+                    'password' => '$2y$10$Emi6M6exgE5vF4jxzZY5OwWYp6bUE0V8mezCCL7yh.mBxJHGFZi.',
+                    'first_name' => 'Super',
+                    'last_name' => 'Administrador',
+                    'status' => 'active',
+                    'twofa_enabled' => 0,
+                ]);
+
+                $userId = $this->findId('users', 'username', 'superadmin');
+
+                if ($userId !== null && $superAdminRoleId !== null) {
+                    $this->insertSeedRow('user_roles', [
+                        'user_id' => $userId,
+                        'role_id' => $superAdminRoleId,
+                    ]);
+                }
+            }
+
+            if (! $this->db->transStatus()) {
+                throw $this->seedWriteException('datos iniciales');
+            }
+
+            if (! $this->db->transCommit()) {
+                throw $this->seedWriteException('commit de datos iniciales');
+            }
+        } catch (\Throwable $exception) {
+            $this->db->transRollback();
+            throw $exception;
         }
+    }
+
+    private function insertSeedRow(string $table, array $row): void
+    {
+        foreach ($this->db->getIndexData($table) as $index) {
+            if (! in_array((string) ($index->type ?? ''), ['PRIMARY', 'UNIQUE'], true) || ! is_array($index->fields ?? null)) {
+                continue;
+            }
+
+            $query = $this->db->table($table);
+            $usable = true;
+            foreach ($index->fields as $field) {
+                if (! array_key_exists($field, $row) || $row[$field] === null) {
+                    $usable = false;
+                    break;
+                }
+                $query->where($field, $row[$field]);
+            }
+
+            if ($usable && $query->get()->getFirstRow('array') !== null) {
+                return;
+            }
+        }
+
+        $inserted = $this->db->table($table)->insert($row);
+        if (! $inserted) {
+            throw $this->seedWriteException($table);
+        }
+    }
+
+    private function seedWriteException(string $operation): \RuntimeException
+    {
+        $error = $this->db->error();
+        $message = (string) ($error['message'] ?? 'Error SQL sin detalle.');
+        $query = (string) $this->db->getLastQuery();
+
+        return new \RuntimeException('Falló ' . $operation . ': ' . $message . ($query !== '' ? ' SQL: ' . $query : ''));
     }
 
     private function findId(string $table, string $column, string $value): ?int

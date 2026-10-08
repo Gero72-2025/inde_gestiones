@@ -9,8 +9,30 @@ class CreateEcoeDynamicFormEngineTables extends Migration
     public function up(): void
     {
         $this->createCatalogTables();
-        $this->seedCatalogData();
-        $this->seedDefaultForms();
+
+        if (! $this->db->transBegin()) {
+            throw new \RuntimeException('No fue posible iniciar la transacción de datos iniciales ECOE.');
+        }
+
+        try {
+            $this->seedCatalogData();
+            $this->seedDefaultForms();
+
+            if (! $this->db->transStatus()) {
+                throw $this->seedWriteException();
+            }
+
+            if (! $this->db->transCommit()) {
+                throw $this->seedWriteException();
+            }
+        } catch (\Throwable $exception) {
+            $this->db->transRollback();
+            throw $exception;
+        }
+
+        foreach ($this->defaultForms() as $form) {
+            $this->createDynamicTable((string) $form['slug'], $form['fields']);
+        }
     }
 
     public function down(): void
@@ -226,15 +248,29 @@ class CreateEcoeDynamicFormEngineTables extends Migration
 
     private function seedCatalogData(): void
     {
-        if ($this->db->table('ecoe_eem_listado')->countAllResults() > 0) {
-            return;
-        }
-
-        $this->db->table('ecoe_eem_listado')->insertBatch([
+        $catalog = [
             ['nombre' => 'Empresa Eléctrica Municipal de Guatemala', 'descripcion' => 'Referencia inicial para pruebas y formularios públicos.', 'estado' => 1, 'created_at' => date('Y-m-d H:i:s')],
             ['nombre' => 'Empresa Eléctrica Municipal de Quetzaltenango', 'descripcion' => 'Catálogo de demostración para trámites EEM.', 'estado' => 1, 'created_at' => date('Y-m-d H:i:s')],
             ['nombre' => 'Empresa Eléctrica Municipal de Escuintla', 'descripcion' => 'Catálogo de demostración para trámites EEM.', 'estado' => 1, 'created_at' => date('Y-m-d H:i:s')],
-        ]);
+        ];
+
+        foreach ($catalog as $row) {
+            $existing = $this->db->table('ecoe_eem_listado')
+                ->select('id')
+                ->where('nombre', $row['nombre'])
+                ->get()
+                ->getRowArray();
+
+            if (is_array($existing)) {
+                unset($row['created_at']);
+                $row['updated_at'] = date('Y-m-d H:i:s');
+                $success = $this->db->table('ecoe_eem_listado')->where('id', (int) $existing['id'])->update($row);
+            } else {
+                $success = $this->db->table('ecoe_eem_listado')->insert($row);
+            }
+
+            $this->assertSeedWrite($success);
+        }
     }
 
     private function seedDefaultForms(): void
@@ -256,7 +292,7 @@ class CreateEcoeDynamicFormEngineTables extends Migration
                 $form['created_at'] = $now;
                 $form['updated_at'] = $now;
 
-                $this->db->table('ecoe_formularios')->insert($form);
+                $this->assertSeedWrite($this->db->table('ecoe_formularios')->insert($form));
                 $formId = (int) $this->db->insertID();
             }
 
@@ -265,7 +301,6 @@ class CreateEcoeDynamicFormEngineTables extends Migration
             }
 
             $this->seedDefaultFormFields($formId, $fieldDefinitions, $now);
-            $this->createDynamicTable((string) $form['slug'], $fieldDefinitions);
         }
     }
 
@@ -289,8 +324,24 @@ class CreateEcoeDynamicFormEngineTables extends Migration
             $field['created_at'] = $now;
             $field['updated_at'] = $now;
 
-            $this->db->table('ecoe_formulario_campos')->insert($field);
+            $this->assertSeedWrite($this->db->table('ecoe_formulario_campos')->insert($field));
         }
+    }
+
+    private function assertSeedWrite(bool $success): void
+    {
+        if (! $success) {
+            throw $this->seedWriteException();
+        }
+    }
+
+    private function seedWriteException(): \RuntimeException
+    {
+        $error = $this->db->error();
+        $message = (string) ($error['message'] ?? 'Error SQL sin detalle.');
+        $query = (string) $this->db->getLastQuery();
+
+        return new \RuntimeException($message . ($query !== '' ? ' SQL: ' . $query : ''));
     }
 
     /**

@@ -95,7 +95,7 @@
                 </button>
             </div>
         </form>
-        <div class="alert alert-warning mt-3 mb-0" role="note">Instala únicamente paquetes de una fuente confiable. Las migraciones contienen código PHP ejecutable.</div>
+        <div class="alert alert-warning mt-3 mb-0" role="note">Los paquetes solo pueden incluir datos y recursos físicos; cualquier ruta con extensión .php se rechaza.</div>
     </section>
 
     <?php if (($report ?? []) !== []): ?>
@@ -414,8 +414,7 @@
             ['Tablas seleccionadas', selectedTables],
             ['Registros seleccionados', records],
             ['Archivos físicos', scan.files.length],
-            ['Migraciones incluidas', analysis.migrations],
-            ['Modo de datos', analysis.update_only ? 'Actualización de existentes' : 'Insertar y omitir duplicados'],
+            ['Modo de datos', 'Insertar faltantes y actualizar existentes'],
         ].forEach(([label, value]) => {
             const row = document.createElement('tr');
             row.append(element('th', 'w-50', label), element('td', '', value));
@@ -423,10 +422,6 @@
         });
         summaryTable.append(tbody);
         summary.append(summaryTable);
-        if (analysis.update_only) {
-            summary.append(element('div', 'alert alert-info', 'Este paquete solo actualiza registros que ya existen en el destino. Los registros faltantes se omiten; no se crean configuraciones iniciales.'));
-        }
-
         if (selectedTables) {
             const selectedList = document.createElement('ul');
             selectedList.className = 'small';
@@ -437,11 +432,6 @@
             });
             summary.append(element('h4', 'h6 mt-3', 'Tablas y registros'), selectedList);
         }
-
-        const migrationList = document.createElement('ul');
-        migrationList.className = 'small';
-        (analysis.migration_files || []).forEach((migration) => migrationList.append(element('li', '', migration)));
-        summary.append(element('h4', 'h6 mt-3', 'Migraciones'), migrationList);
 
         if (scan.files.length) {
             const fileList = document.createElement('ul');

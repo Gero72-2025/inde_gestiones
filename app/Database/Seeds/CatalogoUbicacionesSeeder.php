@@ -129,19 +129,41 @@ class CatalogoUbicacionesSeeder extends Seeder
         $munTable = $this->db->table('cat_municipios');
         $now = date('Y-m-d H:i:s');
 
+        if (! $this->db->transBegin()) {
+            throw new \RuntimeException('No fue posible iniciar la transacción del catálogo de ubicaciones.');
+        }
+
+        try {
+            $this->seedCatalogRows($catalogo, $depTable, $munTable, $now);
+
+            if (! $this->db->transStatus()) {
+                throw $this->seedWriteException();
+            }
+
+            if (! $this->db->transCommit()) {
+                throw $this->seedWriteException();
+            }
+        } catch (\Throwable $exception) {
+            $this->db->transRollback();
+            throw $exception;
+        }
+    }
+
+    private function seedCatalogRows(array $catalogo, $depTable, $munTable, string $now): void
+    {
         foreach (array_keys($catalogo) as $index => $nombre) {
             $codigo = str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT);
 
             $existing = $depTable->select('id')->where('nombre', $nombre)->get()->getRowArray();
 
             if (! is_array($existing)) {
-                $depTable->insert([
+                $this->assertWrite($depTable->insert([
                     'codigo' => $codigo,
                     'nombre' => $nombre,
                     'status' => 'active',
                     'created_at' => $now,
                     'updated_at' => $now,
-                ]);
+                ]));
 
                 $departamentoId = (int) $this->db->insertID();
             } else {
@@ -158,12 +180,12 @@ class CatalogoUbicacionesSeeder extends Seeder
                     ->getRowArray();
 
                 if (is_array($existsByCodigo)) {
-                    $munTable->where('id', (int) $existsByCodigo['id'])->update([
+                    $this->assertWrite($munTable->where('id', (int) $existsByCodigo['id'])->update([
                         'departamento_id' => $departamentoId,
                         'nombre' => $municipioNombre,
                         'status' => 'active',
                         'updated_at' => $now,
-                    ]);
+                    ]));
                     continue;
                 }
 
@@ -175,23 +197,39 @@ class CatalogoUbicacionesSeeder extends Seeder
                     ->getRowArray();
 
                 if (! is_array($existsMunicipio)) {
-                    $munTable->insert([
+                    $this->assertWrite($munTable->insert([
                         'departamento_id' => $departamentoId,
                         'codigo' => $munCodigo,
                         'nombre' => $municipioNombre,
                         'status' => 'active',
                         'created_at' => $now,
                         'updated_at' => $now,
-                    ]);
+                    ]));
                     continue;
                 }
 
-                $munTable->where('id', (int) $existsMunicipio['id'])->update([
+                $this->assertWrite($munTable->where('id', (int) $existsMunicipio['id'])->update([
                     'codigo' => $munCodigo,
                     'status' => 'active',
                     'updated_at' => $now,
-                ]);
+                ]));
             }
         }
+    }
+
+    private function assertWrite(bool $success): void
+    {
+        if (! $success) {
+            throw $this->seedWriteException();
+        }
+    }
+
+    private function seedWriteException(): \RuntimeException
+    {
+        $error = $this->db->error();
+        $message = (string) ($error['message'] ?? 'Error SQL sin detalle.');
+        $query = (string) $this->db->getLastQuery();
+
+        return new \RuntimeException($message . ($query !== '' ? ' SQL: ' . $query : ''));
     }
 }

@@ -267,13 +267,15 @@ C:\xampp\php\php.exe spark db:seed CatalogoUbicacionesSeeder
 C:\xampp\php\php.exe spark sync:permissions
 ```
 
+Las cargas iniciales de las migraciones core/ECOE y `CatalogoUbicacionesSeeder` agrupan sus escrituras de datos en transacciones InnoDB. Si falla una inserción o actualización, se revierte ese bloque y el error conserva el mensaje SQL y la última consulta. Las operaciones DDL (`CREATE TABLE`, índices y claves foráneas) no forman parte de una transacción global: MySQL puede confirmarlas implícitamente. Por eso una instalación completa no es atómica; después de una falla, revisa el estado de migraciones y vuelve a ejecutar el flujo idempotente tras corregir el error.
+
 ### Estado del esquema base y bootstrap limpio
 
-`app/Database/inde_core_schema.sql` contiene el esquema inicial de autenticación/RBAC y datos de bootstrap; `etcee_cortes_schema.sql` y `ecoe_tarifa_social_schema.sql` son referencias de dominio. Actualmente no existe una migración que represente completamente todas las tablas base de usuarios, gerencias, roles y permisos. Por eso, `php spark migrate` por sí solo no garantiza inicializar una base vacía.
+Las migraciones actuales sí incluyen la base de autenticación/RBAC: `2026-05-06-110000_CreateCoreAccessTables` crea `gerencias`, `roles`, `permissions`, `users`, `user_roles`, `role_permissions`, `user_permissions` y `upload_logs`, y carga los datos core en orden de dependencia. Las migraciones posteriores crean los catálogos, portal público y estructuras de ETCEE, ECOE y GERO. En una base MySQL vacía, el procedimiento de bootstrap es ejecutar el conjunto completo con `php spark migrate`; revisa la salida y confirma el estado con `php spark migrate:status`.
 
-Esta brecha no autoriza a importar o ejecutar esos archivos SQL directamente: hacerlo contradice la política migration-only. Para habilitar instalaciones limpias conformes, primero debe crearse y revisarse una migración base que reproduzca el esquema y los datos iniciales necesarios. Hasta contar con ella, no se debe declarar que un bootstrap vacío se completa solo con `spark migrate`; use únicamente una base ya aprovisionada mediante el flujo autorizado del entorno y reporte la migración base como requisito pendiente.
+`app/Database/inde_core_schema.sql`, `etcee_cortes_schema.sql` y `ecoe_tarifa_social_schema.sql` se conservan como referencias, no como scripts operativos. No los importes ni ejecutes manualmente. En una base preexistente o parcialmente creada, compara el esquema real con `php spark migrate:status` antes de continuar: las migraciones idempotentes que omiten tablas existentes no reparan automáticamente una tabla con columnas o índices incompletos.
 
-En bases ya inicializadas, el flujo de mantenimiento es ejecutar `php spark migrate`, después `php spark db:seed CatalogoUbicacionesSeeder` cuando corresponda y `php spark sync:permissions` tras desplegar permisos/rutas nuevas. Verifique la conexión SQL Server antes de habilitar las funciones ECOE que la requieren.
+Después de migrar, ejecuta `php spark db:seed CatalogoUbicacionesSeeder` para completar departamentos y municipios, y `php spark sync:permissions` tras desplegar permisos/rutas nuevas. Verifica la conexión SQL Server antes de habilitar las funciones ECOE que la requieren.
 
 Antes de ejecutar `ecoe:estandarizar-referencias`, realizar respaldo: el comando recalcula y modifica referencias en datos GU, EEM y Tarifa Social.
 
@@ -324,9 +326,40 @@ Antes de ejecutar `ecoe:estandarizar-referencias`, realizar respaldo: el comando
    C:\xampp\php\php.exe vendor\bin\phpunit
    ```
 
+### Instalación local con el instalador web
+
+`public/auto_installer.php` es una alternativa para configurar `.env` y solicitar la ejecución de migraciones desde un navegador local. No sustituye la preparación de una base vacía ni los pasos de catálogo/permisos:
+
+1. Instale dependencias y prepare la base MySQL/MariaDB con un usuario de mínimo privilegio. El usuario necesita permiso para crear la base si todavía no existe.
+2. En XAMPP, abra `http://localhost/portal-inde/public/auto_installer.php`. El instalador solo acepta conexiones desde `127.0.0.1` o `::1`; abrirlo desde otro equipo devuelve `403`.
+3. Configure URL base, conexión MySQL, integración SQL Server ECOE si aplica, clave AJAX de 32 bytes y emisor TOTP. Si `.env` no existe, el instalador lo crea fuera de `public/`. Si ya existe, solo reemplázalo con **Forzar reconfiguración**; se guarda un respaldo.
+4. Al crear o cambiar `.env`, las migraciones se ejecutan automáticamente. Si la configuración no cambia, marca **Ejecutar migraciones pendientes** para solicitarlas. Revisa toda la salida del paso de migraciones y resuelve cualquier error antes de continuar.
+5. En una base que ya tenga el esquema requerido, ejecuta `php spark db:seed CatalogoUbicacionesSeeder` y `php spark sync:permissions` desde la raíz, o sus comandos equivalentes con `C:\xampp\php\php.exe` en XAMPP.
+6. Marca **Renombrar y deshabilitar este instalador** solo cuando todos los pasos finalicen sin errores. Después confirma que `public/auto_installer.php` fue renombrado o elimínalo manualmente.
+
+El instalador no convierte los archivos SQL de referencia en un bootstrap autorizado. El estado de migración base descrito en **Estado del esquema base y bootstrap limpio** sigue aplicando: `spark migrate` no garantiza por sí solo una base vacía totalmente inicializada. No expongas ni habilites el instalador en un servidor público.
+
+### Actualizar desde el módulo Admin
+
+El módulo de paquetes está disponible en `/admin/update`; requiere iniciar sesión como **superadministrador**. Las migraciones se administran por separado en `/admin/migraciones`, también solo para superadministrador.
+
+1. Haz un respaldo comprobado de la base MySQL y de `writable/uploads/`. Anota la versión/revisión actual y prueba el paquete primero en un entorno de staging.
+2. Clasifica el cambio antes de actualizar:
+    - Controladores, modelos, vistas, configuración, dependencias y cualquier otro código PHP se despliegan desde Git/repositorio. Nunca se distribuyen dentro del ZIP.
+    - Cambios de esquema se despliegan junto con sus migraciones versionadas. Después de desplegar el código, entra a `/admin/migraciones`, revisa pendientes y ejecuta **latest**; también se puede ejecutar `php spark migrate` desde la raíz.
+    - El ZIP de `/admin/update` transporta datos seleccionados y archivos físicos permitidos, no reemplaza el despliegue de código ni ejecuta archivos PHP.
+3. En el sistema origen, entra a `/admin/update`, selecciona el módulo y pulsa **Analizar módulo**. Revisa las tablas/filas seleccionadas; el preview muestra hasta 30 filas por tabla. Columnas sensibles/binarias y tablas sin una clave primaria simple no se exportan. El máximo es 50.000 registros por paquete.
+4. Revisa el paso **Archivos referenciados**. El escaneo solo acepta raíces permitidas del módulo y recursos físicos existentes. Confirma cuidadosamente el contenido antes de generar y descargar el ZIP.
+5. El modo de datos generado es `insert_missing`: al importar, inserta filas faltantes y actualiza coincidencias de clave primaria/índice único; los conflictos sin cambios se reportan por separado. La importación de datos está en una transacción y temporalmente desactiva/restaura los checks FK de MySQL. Esto no hace atómica la instalación completa de archivos, migraciones y base de datos.
+6. Transfiere el ZIP mediante un canal autorizado al destino. Inicia sesión allí como superadministrador, abre `/admin/update`, selecciona el archivo y pulsa **Validar e instalar**. El sistema valida formato, módulo, rutas y checksums antes de procesarlo.
+7. El ZIP debe pesar como máximo 25 MB, contener hasta 2.000 entradas y expandirse a no más de 100 MB. Si una validación o escritura falla, consulta el reporte del módulo y los logs; no vuelvas a importar a ciegas. Corrige primero el esquema/dato conflictivo y restaura el respaldo si hace falta.
+8. Comprueba el reporte por tabla y archivo, revisa los datos y recursos en destino y valida las funciones del módulo. Conserva el ZIP y el respaldo según la política de cambios.
+
+Los paquetes pueden incluir JSON de datos, imágenes, cargas y recursos estáticos permitidos. Cualquier ruta con extensión `.php` (sin distinguir mayúsculas/minúsculas) se excluye al empaquetar y se rechaza al importar. No uses este módulo para desplegar código fuente.
+
 ### Apache y VirtualHost
 
-El repositorio incluye `public/.htaccess`, que requiere `mod_rewrite`. El document root debe apuntar a `public/`, no a la raíz del proyecto. Ejemplo de VirtualHost:
+El repositorio incluye `public/.htaccess`, que requiere `mod_rewrite`. El document root recomendado debe apuntar a `public/`, no a la raíz del proyecto. También hay un `.htaccess` en la raíz para instalaciones XAMPP/subcarpeta que reescribe internamente hacia `public/`; úsalo solo cuando no puedas configurar el document root recomendado y habilita `FollowSymLinks` y `AllowOverride`.
 
 ```apache
 <VirtualHost *:80>
